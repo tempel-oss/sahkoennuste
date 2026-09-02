@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="fi"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#27306A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Sähköennuste</title>
+<style>
+:root{--bg:#f5f7fa;--card:#fff;--text:#18202a;--muted:#667085;--line:#dce2e8;--accent:#27306A;--ok:#18794e;--warn:#9a6700}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:980px;margin:auto;padding:18px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-size:1.55rem;margin:0}
+.muted{color:var(--muted);font-size:.86rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:720px}
+th,td{padding:11px 9px;border-bottom:1px solid var(--line);text-align:left;font-size:.94rem}
+th{font-size:.82rem;color:var(--muted);position:sticky;top:0;background:#fff}
+.num{text-align:right}
+.change{display:block;font-size:.76rem;color:var(--muted);font-weight:500}
+.pill{display:inline-block;padding:5px 9px;border-radius:999px;margin:3px;font-size:.78rem;background:#eef1f4}
+.pill.ok{color:var(--ok);background:#e8f5ee} .pill.warn{color:var(--warn);background:#fff4ce}
+details{border-top:1px solid var(--line);padding:10px 0} summary{cursor:pointer;font-weight:650}
+.detailgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.detailgrid div{background:#f7f8fa;padding:10px;border-radius:9px}
+.detailgrid span{display:block;color:var(--muted);font-size:.78rem} .detailgrid strong{font-size:.95rem}
+footer{color:var(--muted);font-size:.8rem;margin:18px 0}
+@media(max-width:650px){main{padding:10px}h1{font-size:1.3rem}.detailgrid{grid-template-columns:repeat(2,1fr)}}
+</style></head>
+<body><main>
+<header>
+<div><h1>Suomen pörssisähkön 12 päivän ennuste</h1>
+<div class="muted">Päivitetty 2026-09-02T20:17:28+00:00 · fundamental_baseline 0.7.1</div></div>
+<div><span class="pill warn">INPUT_ERROR_SCORING: degraded</span><span class="pill ok">WEATHER: ok</span><span class="pill ok">NORDPOOL: ok</span></div>
+</header>
+<div class="card">
+<div class="tablewrap"><table>
+<thead><tr><th>Päivä</th><th class="num">P50 snt/kWh</th><th class="num">P10–P90</th><th>Halvin 3 h</th><th>Kallein 3 h</th><th>Riski</th></tr></thead>
+<tbody>
+          <tr>
+            <td><strong>2026-09-04</strong><div class="muted">D+2</div></td>
+            <td class="num"><strong>5.68</strong><span class="change">-0.05</span></td>
+            <td class="num">3.42 – 7.69</td>
+            <td>02:00-05:00</td>
+            <td>18:00-21:00</td>
+            <td>matala</td>
+          </tr>
+          <tr>
+            <td><strong>2026-09-05</strong><div class="muted">D+3</div></td>
+            <td class="num"><strong>3.67</strong><span class="change">+0.14</span></td>
+            <td class="num">-0.26 – 7.38</td>
+            <td>03:00-06:00</td>
+            <td>09:00-12:00</td>
+            <td>kohtalainen</td>
+          </tr>
+          <tr>
+            <td><strong>2026-09-06</strong><div class="muted">D+4</div></td>
+            <td class="num"><strong>2.92</strong><span class="change">+0.55</span></td>
+            <td class="num">-3.55 – 7.48</td>
+            <td>03:00-06:00</td>
+            <td>18:00-21:00</td>
+            <td>korkea</td>
+          </tr>
+          <tr>
+            <td><strong>2026-09-07</strong><div class="muted">D+5</div></td>
+            <td class="num"><strong>4.44</strong><span class="change">+1.05</span></td>
+            <td class="num">-1.42 – 8.93</td>
+            <td>02:00-05:00</td>
+            <td>18:00-21:00</td>
+            <td>korkea</td>
+          </tr>
+          <tr>
+            <td><strong>2026-09-08</strong><div class="muted">D+6</div></td>
+            <td class="num"><strong>2.72</strong><span class="change">+1.17</span></td>
+            <td class="num">-5.86 – 9.76</td>
+            <td>02:00-05:00</td>
+            <td>18:00-21:00</td>
+            <td>korkea</td>
+          </tr>
+          <tr>
+            <td><strong>2026-09-09</strong><div class="muted">D+7</div></td>
+            <td class="num"><strong>4.36</strong><span class="change">+0.49</span></td>
+            <td class="num">-4.16 – 10.43</td>
+            <td>01:00-04:00</td>
+            <td>18:00-21:00</td>
+            <td>korkea</td>
+          </tr>
+          <tr>
+            <td><strong>2026-09-10</strong><div class="muted">D+8</div></td>
+            <td class="num"><strong>4.80</strong><span class="change">+0.20</span></td>
+            <td class="num">-2.95 – 10.70</td>
+            <td>02:00-05:00</td>
+            <td>18:00-21:00</td>
+            <td>korkea</td>
+          </tr>
+          <tr>
+            <td><strong>2026-09-11</strong><div class="muted">D+9</div></td>
+            <td class="num"><strong>4.62</strong><span class="change">+0.17</span></td>
+            <td class="num">-4.16 – 11.20</td>
+            <td>02:00-05:00</td>
+            <td>18:00-21:00</td>
+            <td>korkea</td>
+          </tr>
+          <tr>
+            <td><strong>2026-09-12</strong><div class="muted">D+10</div></td>
+            <td class="num"><strong>4.79</strong><span class="change">+0.18</span></td>
+            <td class="num">-3.92 – 11.40</td>
+            <td>02:00-05:00</td>
+            <td>18:00-21:00</td>
+            <td>korkea</td>
+          </tr>
+          <tr>
+            <td><strong>2026-09-13</strong><div class="muted">D+11</div></td>
+            <td class="num"><strong>4.95</strong><span class="change">+0.03</span></td>
+            <td class="num">-3.48 – 11.59</td>
+            <td>02:00-05:00</td>
+            <td>18:00-21:00</td>
+            <td>korkea</td>
+          </tr>
+          <tr>
+            <td><strong>2026-09-14</strong><div class="muted">D+12</div></td>
+            <td class="num"><strong>5.13</strong><span class="change">-0.04</span></td>
+            <td class="num">-4.03 – 12.39</td>
+            <td>02:00-05:00</td>
+            <td>18:00-21:00</td>
+            <td>korkea</td>
+          </tr></tbody>
+</table></div>
+<div class="muted" style="margin-top:9px">Hinnat sisältävät ALV 25,5 %. P50 on perusennuste. Tämä versio on vielä fundamentaalinen baseline, ei koulutettu ML/Champion-malli.</div>
+</div>
+<div class="card"><strong>Ennusteen taustatekijät</strong>
+        <details>
+          <summary>2026-09-04 · D+2 · P50 5.68 snt/kWh</summary>
+          <div class="detailgrid">
+            <div><span>Kulutus</span><strong>8680.0 MW</strong></div>
+            <div><span>Tuuli</span><strong>485.7 MW</strong></div>
+            <div><span>Aurinko</span><strong>285.3 MW</strong></div>
+            <div><span>Residual load</span><strong>7909.0 MW</strong></div>
+            <div><span>Lämpötila</span><strong>13.9 C</strong></div>
+            <div><span>100 m tuuli</span><strong>2.8 m/s</strong></div>
+          </div>
+        </details>
+        <details>
+          <summary>2026-09-05 · D+3 · P50 3.67 snt/kWh</summary>
+          <div class="detailgrid">
+            <div><span>Kulutus</span><strong>8456.1 MW</strong></div>
+            <div><span>Tuuli</span><strong>2288.7 MW</strong></div>
+            <div><span>Aurinko</span><strong>331.1 MW</strong></div>
+            <div><span>Residual load</span><strong>5836.3 MW</strong></div>
+            <div><span>Lämpötila</span><strong>11.9 C</strong></div>
+            <div><span>100 m tuuli</span><strong>6.0 m/s</strong></div>
+          </div>
+        </details>
+        <details>
+          <summary>2026-09-06 · D+4 · P50 2.92 snt/kWh</summary>
+          <div class="detailgrid">
+            <div><span>Kulutus</span><strong>—</strong></div>
+            <div><span>Tuuli</span><strong>—</strong></div>
+            <div><span>Aurinko</span><strong>—</strong></div>
+            <div><span>Residual load</span><strong>—</strong></div>
+            <div><span>Lämpötila</span><strong>10.6 C</strong></div>
+            <div><span>100 m tuuli</span><strong>9.4 m/s</strong></div>
+          </div>
+        </details>
+        <details>
+          <summary>2026-09-07 · D+5 · P50 4.44 snt/kWh</summary>
+          <div class="detailgrid">
+            <div><span>Kulutus</span><strong>—</strong></div>
+            <div><span>Tuuli</span><strong>—</strong></div>
+            <div><span>Aurinko</span><strong>—</strong></div>
+            <div><span>Residual load</span><strong>—</strong></div>
+            <div><span>Lämpötila</span><strong>12.7 C</strong></div>
+            <div><span>100 m tuuli</span><strong>5.4 m/s</strong></div>
+          </div>
+        </details>
+        <details>
+          <summary>2026-09-08 · D+6 · P50 2.72 snt/kWh</summary>
+          <div class="detailgrid">
+            <div><span>Kulutus</span><strong>—</strong></div>
+            <div><span>Tuuli</span><strong>—</strong></div>
+            <div><span>Aurinko</span><strong>—</strong></div>
+            <div><span>Residual load</span><strong>—</strong></div>
+            <div><span>Lämpötila</span><strong>14.1 C</strong></div>
+            <div><span>100 m tuuli</span><strong>7.4 m/s</strong></div>
+          </div>
+        </details>
+        <details>
+          <summary>2026-09-09 · D+7 · P50 4.36 snt/kWh</summary>
+          <div class="detailgrid">
+            <div><span>Kulutus</span><strong>—</strong></div>
+            <div><span>Tuuli</span><strong>—</strong></div>
+            <div><span>Aurinko</span><strong>—</strong></div>
+            <div><span>Residual load</span><strong>—</strong></div>
+            <div><span>Lämpötila</span><strong>13.7 C</strong></div>
+            <div><span>100 m tuuli</span><strong>5.3 m/s</strong></div>
+          </div>
+        </details>
+        <details>
+          <summary>2026-09-10 · D+8 · P50 4.80 snt/kWh</summary>
+          <div class="detailgrid">
+            <div><span>Kulutus</span><strong>—</strong></div>
+            <div><span>Tuuli</span><strong>—</strong></div>
+            <div><span>Aurinko</span><strong>—</strong></div>
+            <div><span>Residual load</span><strong>—</strong></div>
+            <div><span>Lämpötila</span><strong>12.8 C</strong></div>
+            <div><span>100 m tuuli</span><strong>4.6 m/s</strong></div>
+          </div>
+        </details>
+        <details>
+          <summary>2026-09-11 · D+9 · P50 4.62 snt/kWh</summary>
+          <div class="detailgrid">
+            <div><span>Kulutus</span><strong>—</strong></div>
+            <div><span>Tuuli</span><strong>—</strong></div>
+            <div><span>Aurinko</span><strong>—</strong></div>
+            <div><span>Residual load</span><strong>—</strong></div>
+            <div><span>Lämpötila</span><strong>13.6 C</strong></div>
+            <div><span>100 m tuuli</span><strong>7.5 m/s</strong></div>
+          </div>
+        </details>
+        <details>
+          <summary>2026-09-12 · D+10 · P50 4.79 snt/kWh</summary>
+          <div class="detailgrid">
+            <div><span>Kulutus</span><strong>—</strong></div>
+            <div><span>Tuuli</span><strong>—</strong></div>
+            <div><span>Aurinko</span><strong>—</strong></div>
+            <div><span>Residual load</span><strong>—</strong></div>
+            <div><span>Lämpötila</span><strong>13.2 C</strong></div>
+            <div><span>100 m tuuli</span><strong>4.9 m/s</strong></div>
+          </div>
+        </details>
+        <details>
+          <summary>2026-09-13 · D+11 · P50 4.95 snt/kWh</summary>
+          <div class="detailgrid">
+            <div><span>Kulutus</span><strong>—</strong></div>
+            <div><span>Tuuli</span><strong>—</strong></div>
+            <div><span>Aurinko</span><strong>—</strong></div>
+            <div><span>Residual load</span><strong>—</strong></div>
+            <div><span>Lämpötila</span><strong>12.2 C</strong></div>
+            <div><span>100 m tuuli</span><strong>2.5 m/s</strong></div>
+          </div>
+        </details>
+        <details>
+          <summary>2026-09-14 · D+12 · P50 5.13 snt/kWh</summary>
+          <div class="detailgrid">
+            <div><span>Kulutus</span><strong>—</strong></div>
+            <div><span>Tuuli</span><strong>—</strong></div>
+            <div><span>Aurinko</span><strong>—</strong></div>
+            <div><span>Residual load</span><strong>—</strong></div>
+            <div><span>Lämpötila</span><strong>12.2 C</strong></div>
+            <div><span>100 m tuuli</span><strong>3.5 m/s</strong></div>
+          </div>
+        </details></div>
+<footer>Forecast run: 20260902T201728Z-59b5cee0 · Electricity Forecaster v0.9</footer>
+</main><script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body></html>
