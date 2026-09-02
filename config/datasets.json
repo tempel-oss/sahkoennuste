@@ -1,0 +1,21 @@
+{
+  "datasets": {
+    "consumption_actual": {"id": 124, "metric": "consumption_actual_mw", "unit": "MW", "is_forecast": false},
+    "consumption_forecast_72h": {"id": 166, "metric": "consumption_forecast_mw", "unit": "MW", "is_forecast": true, "critical": true},
+    "consumption_forecast_daily_backup": {"id": 165, "metric": "consumption_forecast_daily_mw", "unit": "MW", "is_forecast": true},
+    "production_actual": {"id": 74, "metric": "production_actual_mw", "unit": "MW", "is_forecast": false},
+    "production_realtime_backup": {"id": 192, "metric": "production_realtime_mw", "unit": "MW", "is_forecast": false},
+    "production_forecast": {"id": 241, "metric": "production_forecast_mw", "unit": "MW", "is_forecast": true},
+    "wind_actual": {"id": 75, "metric": "wind_actual_mw", "unit": "MW", "is_forecast": false, "critical": true},
+    "wind_realtime_backup": {"id": 181, "metric": "wind_realtime_mw", "unit": "MW", "is_forecast": false},
+    "wind_forecast_72h": {"id": 245, "metric": "wind_forecast_mw", "unit": "MW", "is_forecast": true, "critical": true},
+    "wind_forecast_daily": {"id": 246, "metric": "wind_forecast_daily_mw", "unit": "MWh/h", "is_forecast": true},
+    "wind_capacity": {"id": 268, "metric": "wind_capacity_mw", "unit": "MW", "is_forecast": false},
+    "solar_forecast_72h": {"id": 248, "metric": "solar_forecast_mw", "unit": "MWh/h", "is_forecast": true},
+    "solar_forecast_daily": {"id": 247, "metric": "solar_forecast_daily_mw", "unit": "MWh/h", "is_forecast": true},
+    "solar_capacity": {"id": 267, "metric": "solar_capacity_mw", "unit": "MW", "is_forecast": false},
+    "se1_to_fi_intraday": {"id": 38, "metric": "se1_fi_intraday_capacity_mw", "unit": "MW", "is_forecast": true},
+    "fi_to_se1_intraday": {"id": 44, "metric": "fi_se1_intraday_capacity_mw", "unit": "MW", "is_forecast": true},
+    "fi_to_se3_intraday": {"id": 45, "metric": "fi_se3_intraday_capacity_mw", "unit": "MW", "is_forecast": true}
+  }
+}

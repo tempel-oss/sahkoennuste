@@ -1,0 +1,3 @@
+from _bootstrap import *
+from electricity_forecaster.price_forecast_scoring import score_price_forecasts
+score_price_forecasts()
