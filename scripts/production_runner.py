@@ -50,7 +50,7 @@ def step(name, critical, fn):
         return False,None
 
 try:
-    print("=== ELECTRICITY FORECASTER v1.0.2 PRODUCTION RUN ===")
+    print("=== ELECTRICITY FORECASTER v1.2 PRODUCTION RUN ===")
     print("Aika:",datetime.now().isoformat(timespec="seconds"))
 
     from electricity_forecaster.ingest import ingest as fingrid
@@ -107,9 +107,11 @@ try:
     if forecast_ok:
         step("DIAGNOSTICS",False,build_diagnostics)
         step("FORECAST_CHANGES",False,build_changes)
-        publish_ok,_=step("PUBLISH_OUTPUT",True,build_latest_outputs)
 
     step("PRICE_FORECAST_SCORING",False,score_price_forecasts)
+
+    if forecast_ok:
+        publish_ok,_=step("PUBLISH_OUTPUT",True,build_latest_outputs)
 
     if not forecast_ok or not publish_ok:
         if exit_code == 0:

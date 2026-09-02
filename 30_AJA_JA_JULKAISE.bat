@@ -1,7 +1,7 @@
 
 @echo off
 cd /d "%~dp0"
-echo === Electricity Forecaster v1.0.2: ajo + julkaisu ===
+echo === Electricity Forecaster v1.2: ajo + julkaisu ===
 python scripts\production_runner.py
 if errorlevel 1 (
   echo.
