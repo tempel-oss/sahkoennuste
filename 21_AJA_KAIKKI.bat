@@ -1,7 +1,7 @@
 
 @echo off
 cd /d "%~dp0"
-echo Electricity Forecaster v1.2 - tuotantoajo
+echo Electricity Forecaster v1.3 - tuotantoajo
 python scripts\production_runner.py
 set RC=%ERRORLEVEL%
 echo.

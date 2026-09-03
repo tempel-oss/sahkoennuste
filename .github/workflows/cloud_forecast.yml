@@ -1,0 +1,78 @@
+
+name: Cloud Electricity Forecast
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 13 * * *"
+    - cron: "15 14 * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write
+
+concurrency:
+  group: electricity-forecast-cloud
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: gate
+        env:
+          GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
+        run: python scripts/cloud_gate.py
+
+  forecast:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore SQLite history
+        uses: actions/cache/restore@v4
+        with:
+          path: data/electricity_forecaster.sqlite3
+          key: forecast-db-${{ github.run_id }}
+          restore-keys: |
+            forecast-db-
+
+      - name: Run forecast
+        env:
+          FINGRID_API_KEY: ${{ secrets.FINGRID_API_KEY }}
+          ENTSOE_API_TOKEN: ${{ secrets.ENTSOE_API_TOKEN }}
+          PYTHONUNBUFFERED: "1"
+        run: python scripts/cloud_runner.py
+
+      - name: Validate output
+        run: python scripts/cloud_validate.py
+
+      - name: Save SQLite history
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: data/electricity_forecaster.sqlite3
+          key: forecast-db-${{ github.run_id }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: output
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

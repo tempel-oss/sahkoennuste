@@ -50,7 +50,7 @@ def step(name, critical, fn):
         return False,None
 
 try:
-    print("=== ELECTRICITY FORECASTER v1.2 PRODUCTION RUN ===")
+    print("=== ELECTRICITY FORECASTER v1.3 PRODUCTION RUN ===")
     print("Aika:",datetime.now().isoformat(timespec="seconds"))
 
     from electricity_forecaster.ingest import ingest as fingrid
