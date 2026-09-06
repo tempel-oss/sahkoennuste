@@ -6,6 +6,7 @@ from .config import ROOT
 from .db import connect, init_db
 from .forecast_engine import HELSINKI
 from .model_registry import model_status
+from .forecast_quality import quality_summary
 
 VAT = 1.255
 EURMWH_TO_SNTKWH_VAT = VAT / 10.0
@@ -145,12 +146,12 @@ def build_latest_outputs():
           "diagnostics":_diag_map(con,run_id,td),"change_from_previous":changes.get("p50")
         })
     payload={
-      "schema_version":"1.1",
+      "schema_version":"1.4",
       "generated_at_utc":datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
       "forecast_run_id":run_id,"forecast_issue_time":meta["issue_time"],
       "model":{"name":meta["model_name"],"version":meta["model_version"],
                "trained_ml":meta["model_name"]!="fundamental_baseline"},
-      "model_status":model_status(),"previous_forecast_run_id":prev["forecast_run_id"] if prev else None,
+      "model_status":model_status(),"forecast_quality":quality_summary(),"previous_forecast_run_id":prev["forecast_run_id"] if prev else None,
       "data_quality":meta["data_quality"],"freshness":_freshness(con),
       "published_day_ahead":_published_prices(con),"days":days
     }
@@ -247,6 +248,21 @@ def _change_summary(p):
         out.append(("wind","purple","D+8–D+12 epävarmuus",f"Keskimääräinen P10–P90-leveys {sum(widths)/len(widths):.2f} snt/kWh."))
     return out[:3]
 
+
+def _format_helsinki_time(value):
+    """Render an ISO timestamp in Europe/Helsinki local time."""
+    try:
+        s=str(value).strip()
+        if s.endswith("Z"):
+            s=s[:-1] + "+00:00"
+        dt=datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt=dt.replace(tzinfo=timezone.utc)
+        local=dt.astimezone(HELSINKI)
+        return local.strftime("%d.%m.%Y %H:%M:%S")
+    except Exception:
+        return str(value)
+
 def _render_html(p):
     pub=[]
     for x in p["published_day_ahead"]:
@@ -295,6 +311,43 @@ def _render_html(p):
         changes.append(f'''<div class="change-item"><span class="change-icon {tone}">{_icon_svg(icon)}</span><div><b>{html.escape(title)}</b><small>{html.escape(desc)}</small></div></div>''')
 
     ms=p["model_status"]; ev=ms["evaluation"]; champ=ms["champion"]; ready=ms["challenger_training_ready"]
+    fq=p.get("forecast_quality",{}); qo=fq.get("overall",{})
+    scored_hours=int(fq.get("scored_hours",0) or 0)
+    scored_runs=int(fq.get("scored_forecast_runs",0) or 0)
+    train_hours_pct=min(100, round(scored_hours/1000*100)) if scored_hours>=0 else 0
+    train_runs_pct=min(100, round(scored_runs/20*100)) if scored_runs>=0 else 0
+    train_pct=min(train_hours_pct,train_runs_pct)
+    wf_hours_pct=min(100, round(scored_hours/1500*100)) if scored_hours>=0 else 0
+    wf_runs_pct=min(100, round(scored_runs/30*100)) if scored_runs>=0 else 0
+    wf_pct=min(wf_hours_pct,wf_runs_pct)
+    cov="—" if qo.get("p10_p90_coverage") is None else f"{qo['p10_p90_coverage']*100:.0f}%"
+    quality_html=(
+      '<div class="quality-grid">'
+      f'<div class="quality-kpi"><span>MAE</span><b>{_fmt(qo.get("mae_eur_mwh"))}</b><small>EUR/MWh</small></div>'
+      f'<div class="quality-kpi"><span>Bias</span><b>{_fmt(qo.get("bias_eur_mwh"))}</b><small>EUR/MWh</small></div>'
+      f'<div class="quality-kpi"><span>P10–P90 peitto</span><b>{cov}</b><small>toteutuneista</small></div>'
+      f'<div class="quality-kpi"><span>Pisteytetty</span><b>{fq.get("scored_hours",0)}</b><small>tuntia</small></div>'
+      '</div>'
+    )
+    qrows=[]
+    for h,m in fq.get("by_horizon",{}).items():
+        if m.get("n",0):
+            hc="—" if m.get("p10_p90_coverage") is None else f"{m['p10_p90_coverage']*100:.0f}%"
+            qrows.append(f'<tr><td>D+{h}</td><td>{m["n"]}</td><td>{_fmt(m.get("mae_eur_mwh"))}</td><td>{_fmt(m.get("bias_eur_mwh"))}</td><td>{hc}</td></tr>')
+    quality_table='<div class="quality-table"><table><thead><tr><th>Horisontti</th><th>n</th><th>MAE</th><th>Bias</th><th>P10–P90</th></tr></thead><tbody>'+''.join(qrows)+'</tbody></table></div>'
+    readiness_html=f"""
+    <div class="readiness-grid">
+      <div class="readiness-card">
+        <div class="readiness-head"><span>Challenger-koulutusvalmius</span><b>{train_pct}%</b></div>
+        <div class="progress-track"><div class="progress-fill" style="width:{train_pct}%"></div></div>
+        <div class="readiness-meta">{scored_hours}/1000 tuntia · {scored_runs}/20 ajoa</div>
+      </div>
+      <div class="readiness-card">
+        <div class="readiness-head"><span>Walk-forward-valmius</span><b>{wf_pct}%</b></div>
+        <div class="progress-track"><div class="progress-fill" style="width:{wf_pct}%"></div></div>
+        <div class="readiness-meta">{scored_hours}/1500 tuntia · {scored_runs}/30 ajoa</div>
+      </div>
+    </div>"""
 
     return f'''<!doctype html><html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#083b9a">
 <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/icon-192.png"><title>Sähköennuste</title>
@@ -308,14 +361,53 @@ main{{max-width:1080px;margin:-34px auto 0;padding:0 18px 38px}}.source-strip{{b
 .two-col{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}.subhead{{font-size:1.05rem;margin:0 0 10px}}.change-item{{display:flex;gap:11px;align-items:center;padding:10px;border:1px solid #edf1f6;border-radius:12px;margin-top:8px}}.change-icon{{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#e9f2ff;color:#1a5fcc;flex:0 0 auto}}.change-icon.green{{background:#e8f7ee;color:#15924c}}.change-icon.red{{background:#ffefed;color:#d84a3c}}.change-icon.amber{{background:#fff3df;color:#e38719}}.change-icon.purple{{background:#f0ebff;color:#7656c8}}.change-item b{{display:block;font-size:.86rem}}.change-item small{{display:block;color:var(--muted);font-size:.74rem}}
 .model-row{{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid #edf1f6}}.model-row:last-child{{border-bottom:0}}.model-ic{{color:#255cb2;width:24px;display:grid;place-items:center}}.model-row span{{font-size:.82rem;color:#526179}}.model-row b{{margin-left:auto;font-size:.84rem;color:#173a76}}.model-row b.ready{{color:var(--green)}}
 .factor-grid{{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}}.factor{{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 5px 16px rgba(34,58,92,.05)}}.factor-icon{{width:34px;height:34px;border-radius:10px;background:#f0f5fd;color:#2459a8;display:grid;place-items:center;flex:0 0 auto}}.factor small{{display:block;color:#6f7c90;font-size:.72rem}}.factor b{{display:block;font-size:.98rem}}.factor em{{font-style:normal;font-size:.7rem;color:#728096}}footer{{text-align:center;color:#7e8999;font-size:.72rem;padding:24px 0}}
-@media(max-width:760px){{.app-header{{padding:18px 14px 48px}}.brand h1{{font-size:1.55rem}}.logo{{width:46px;height:46px}}main{{padding:0 10px 28px}}.source-strip{{grid-template-columns:1fr 1fr;padding:5px}}.source-item{{border-right:0;border-bottom:1px solid var(--line);padding:8px 10px}}.source-item:nth-last-child(-n+2){{border-bottom:0}}.price-grid{{grid-template-columns:1fr}}.desktop-table{{display:none}}.mobile-forecast{{display:flex;gap:10px;overflow-x:auto;padding:2px 1px 8px;scroll-snap-type:x mandatory}}.forecast-day{{min-width:210px;scroll-snap-align:start;border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff;position:relative}}.forecast-day small{{color:var(--muted)}}.mobile-p50{{font-size:1.7rem;font-weight:800;color:#0c49bd;margin:10px 0}}.mobile-p50 small{{font-size:.65rem;margin-left:4px}}.mobile-range{{font-size:.7rem;color:var(--muted)}}.mobile-range b{{font-size:.83rem;color:var(--text)}}.mobile-change{{font-weight:750;font-size:.82rem;margin:8px 0}}.mobile-change.rise{{color:var(--orange)}}.mobile-change.fall{{color:var(--green)}}.mobile-change small{{display:block;font-size:.65rem}}.forecast-day .risk{{position:absolute;right:10px;top:10px;min-width:auto}}.two-col{{grid-template-columns:1fr}}.factor-grid{{grid-template-columns:1fr 1fr}}.legend{{display:none}}.chart-scroll{{overflow-x:auto}}.price-chart{{min-width:720px}}.refresh{{display:none}}}}
+.quality-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}}
+.readiness-grid{{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}}
+.readiness-card{{background:#f8fbff;border:1px solid var(--line);border-radius:14px;padding:13px}}
+.readiness-head{{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:.78rem;color:var(--muted)}}
+.readiness-head b{{font-size:1rem;color:#123f93}}
+.progress-track{{height:10px;background:#e8eef8;border-radius:999px;overflow:hidden;margin:10px 0 7px}}
+.progress-fill{{height:100%;background:linear-gradient(90deg,#2c6bed,#6b9cff);border-radius:999px}}
+.readiness-meta{{font-size:.72rem;color:var(--muted)}}.tz-label{{opacity:.72;font-size:.72rem}}
+.quality-kpi{{background:#f7f9fc;border:1px solid var(--line);border-radius:14px;padding:12px}}.quality-kpi span{{display:block;color:var(--muted);font-size:.74rem}}.quality-kpi b{{display:block;font-size:1.35rem;color:#123f93}}.quality-kpi small{{color:var(--muted);font-size:.7rem}}.quality-table{{overflow-x:auto}}.quality-table table{{min-width:560px}}
+@media(max-width:760px){{.app-header{{padding:18px 14px 48px}}.brand h1{{font-size:1.55rem}}.logo{{width:46px;height:46px}}main{{padding:0 10px 28px}}.source-strip{{grid-template-columns:1fr 1fr;padding:5px}}.source-item{{border-right:0;border-bottom:1px solid var(--line);padding:8px 10px}}.source-item:nth-last-child(-n+2){{border-bottom:0}}.price-grid{{grid-template-columns:1fr}}.desktop-table{{display:none}}.mobile-forecast{{display:flex;gap:10px;overflow-x:auto;padding:2px 1px 8px;scroll-snap-type:x mandatory}}.forecast-day{{min-width:210px;scroll-snap-align:start;border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff;position:relative}}.forecast-day small{{color:var(--muted)}}.mobile-p50{{font-size:1.7rem;font-weight:800;color:#0c49bd;margin:10px 0}}.mobile-p50 small{{font-size:.65rem;margin-left:4px}}.mobile-range{{font-size:.7rem;color:var(--muted)}}.mobile-range b{{font-size:.83rem;color:var(--text)}}.mobile-change{{font-weight:750;font-size:.82rem;margin:8px 0}}.mobile-change.rise{{color:var(--orange)}}.mobile-change.fall{{color:var(--green)}}.mobile-change small{{display:block;font-size:.65rem}}.forecast-day .risk{{position:absolute;right:10px;top:10px;min-width:auto}}.two-col{{grid-template-columns:1fr}}.factor-grid{{grid-template-columns:1fr 1fr}}.quality-grid{{grid-template-columns:1fr 1fr}}.readiness-grid{{grid-template-columns:1fr}}.legend{{display:none}}.chart-scroll{{overflow-x:auto}}.price-chart{{min-width:720px}}.refresh{{display:none}}}}
 </style></head><body>
-<header class="app-header"><div class="header-inner"><div class="brand"><span class="logo">{_icon_svg("bolt")}</span><div><h1>Sähköennuste</h1><p>Suomen pörssisähkö</p><div class="updated">◷ Päivitetty {html.escape(str(p["forecast_issue_time"]))}</div></div></div><div class="refresh">↻</div></div></header>
+<header class="app-header"><div class="header-inner"><div class="brand"><span class="logo">{_icon_svg("bolt")}</span><div><h1>Sähköennuste</h1><p>Suomen pörssisähkö</p><div class="updated">◷ Päivitetty <span id="updated-local" data-utc="{html.escape(str(p["forecast_issue_time"]))}">{_format_helsinki_time(p["forecast_issue_time"])}</span> <span class="tz-label">Suomen aika</span></div></div></div><div class="refresh">↻</div></div></header>
 <main><section class="source-strip">{"".join(fresh)}</section>
 <h2 class="section-title">Julkaistut day-ahead-hinnat <span class="info">i</span></h2><section class="price-grid">{"".join(pub)}</section>
 <h2 class="section-title">D+2–D+12 ennuste <span class="info">i</span></h2><section class="card desktop-table"><div class="tablewrap"><table><thead><tr><th>Päivä</th><th>P50 (snt/kWh)</th><th>P10–P90</th><th>Vs. edellinen</th><th>Riski</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div></section><section class="mobile-forecast">{"".join(mobile)}</section>
 <h2 class="section-title">12 päivän hintakehitys <span class="info">i</span></h2><section class="card"><div class="chart-head"><div class="legend"><span><i></i>P50</span><span><i class="band"></i>P10–P90</span></div></div><div class="chart-scroll">{_chart_svg(p)}</div></section>
 <section class="two-col" style="margin-top:16px"><div class="card"><h3 class="subhead">Mitä muuttui <span class="info">i</span></h3>{"".join(changes)}</div><div class="card"><h3 class="subhead">Mallin tila <span class="info">i</span></h3><div class="model-row"><span class="model-ic">{_icon_svg("trophy")}</span><span>Champion</span><b>{html.escape(str(champ["name"]))} {html.escape(str(champ["version"]))}</b></div><div class="model-row"><span class="model-ic">{_icon_svg("brain")}</span><span>Koulutettu ML</span><b>{'Kyllä' if champ.get("trained_ml") else 'Ei vielä'}</b></div><div class="model-row"><span class="model-ic">{_icon_svg("db")}</span><span>Pisteytettyjä tunteja</span><b>{ev["scored_hours"]}</b></div><div class="model-row"><span class="model-ic">{_icon_svg("check")}</span><span>Challenger-koulutus</span><b class="{'ready' if ready else ''}">{'Valmis' if ready else 'Ei vielä'}</b></div></div></section>
+<h2 class="section-title">Ennusteen laatu <span class="info">i</span></h2><section class="card">{quality_html}{quality_table}{readiness_html}</section>
 <h2 class="section-title">Ennusteen taustatekijät <span class="info">i</span></h2><section class="factor-grid">{"".join(factors)}</section>
-<footer>Forecast run: {html.escape(p["forecast_run_id"])} · Electricity Forecaster v1.2 Visual Dashboard</footer></main>
-<script>if("serviceWorker" in navigator){{window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{{}}));}}</script></body></html>'''
+<footer>Forecast run: {html.escape(p["forecast_run_id"])} · Electricity Forecaster v1.4.1 ML Readiness</footer></main>
+<script>
+(function(){{
+  function parseUtc(raw){{
+    if(!raw) return null;
+    raw=String(raw).trim();
+    if(raw.endsWith("Z")) return new Date(raw);
+    if(/[+-]\\d{{2}}:\\d{{2}}$/.test(raw)) return new Date(raw);
+    // GitHub/SQLite issue_time without offset is UTC by convention in this app.
+    return new Date(raw + "Z");
+  }}
+  function renderHelsinki(){{
+    const el=document.getElementById("updated-local");
+    if(!el) return;
+    const d=parseUtc(el.dataset.utc || "");
+    if(!d || isNaN(d.getTime())) return;
+    const formatted=new Intl.DateTimeFormat("fi-FI",{{
+      timeZone:"Europe/Helsinki",
+      day:"2-digit",month:"2-digit",year:"numeric",
+      hour:"2-digit",minute:"2-digit",second:"2-digit",
+      hour12:false
+    }}).format(d);
+    el.textContent=formatted;
+    el.title="Europe/Helsinki";
+  }}
+  renderHelsinki();
+  if("serviceWorker" in navigator){{
+    window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{{}}));
+  }}
+}})();
+</script></body></html>'''

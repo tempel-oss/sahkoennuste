@@ -50,7 +50,7 @@ def step(name, critical, fn):
         return False,None
 
 try:
-    print("=== ELECTRICITY FORECASTER v1.3 PRODUCTION RUN ===")
+    print("=== ELECTRICITY FORECASTER v1.4.1 PRODUCTION RUN ===")
     print("Aika:",datetime.now().isoformat(timespec="seconds"))
 
     from electricity_forecaster.ingest import ingest as fingrid
@@ -63,6 +63,7 @@ try:
     from electricity_forecaster.forecast_engine import make_forecast
     from electricity_forecaster.diagnostics import build_diagnostics,build_changes
     from electricity_forecaster.production_output import build_latest_outputs
+    from electricity_forecaster.forecast_quality import build_training_matrix,walk_forward_baseline_report
 
     fingrid_ok,_=step("FINGRID",True,fingrid)
     step("NORDPOOL",False,ingest_prices)
@@ -109,6 +110,8 @@ try:
         step("FORECAST_CHANGES",False,build_changes)
 
     step("PRICE_FORECAST_SCORING",False,score_price_forecasts)
+    step("ML_TRAINING_MATRIX",False,build_training_matrix)
+    step("WALK_FORWARD_BASELINE",False,walk_forward_baseline_report)
 
     if forecast_ok:
         publish_ok,_=step("PUBLISH_OUTPUT",True,build_latest_outputs)
