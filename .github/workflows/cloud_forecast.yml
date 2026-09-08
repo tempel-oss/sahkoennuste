@@ -4,6 +4,8 @@ name: Cloud Electricity Forecast
 on:
   workflow_dispatch:
   schedule:
+    - cron: "15 3 * * *"
+    - cron: "15 4 * * *"
     - cron: "15 13 * * *"
     - cron: "15 14 * * *"
 
@@ -22,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       run: ${{ steps.gate.outputs.run }}
+      slot: ${{ steps.gate.outputs.slot }}
     steps:
       - uses: actions/checkout@v4
       - id: gate
@@ -30,6 +33,7 @@ jobs:
         run: python scripts/cloud_gate.py
 
   forecast:
+    timeout-minutes: 45
     needs: gate
     if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
@@ -58,10 +62,29 @@ jobs:
           FINGRID_API_KEY: ${{ secrets.FINGRID_API_KEY }}
           ENTSOE_API_TOKEN: ${{ secrets.ENTSOE_API_TOKEN }}
           PYTHONUNBUFFERED: "1"
-        run: python scripts/cloud_runner.py
+        run: |
+          echo "FORECAST_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+          python scripts/cloud_runner.py
 
       - name: Validate output
         run: python scripts/cloud_validate.py
+
+      - name: Archive successful forecast
+        run: python scripts/cloud_archive.py --slot ${{ needs.gate.outputs.slot }}
+
+      - name: Preserve forecast snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: forecast-${{ needs.gate.outputs.slot }}-${{ github.run_id }}
+          path: data/forecast_archive/
+          retention-days: 90
+
+      - name: Preserve production logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-logs-${{ github.run_id }}
+          path: logs/*.log
 
       - name: Save SQLite history
         if: success()
