@@ -37,7 +37,7 @@ def quality_summary():
                           FROM price_forecast_scores ORDER BY target_time""").fetchall()
         runs=c.execute("SELECT COUNT(DISTINCT forecast_run_id) FROM price_forecast_scores").fetchone()[0]
     by={}
-    for h in range(2,13):
+    for h in range(1,13):
         by[str(h)]=_metrics([r for r in rows if int(r["horizon_days"])==h])
     weak=[]
     candidates=[]

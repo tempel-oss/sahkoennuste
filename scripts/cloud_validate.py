@@ -12,8 +12,26 @@ def validate(root, started):
         if not path.is_file() or not path.stat().st_size:
             raise RuntimeError('Missing or empty output: ' + name)
     data = json.loads((root / 'output/latest_forecast.json').read_text(encoding='utf-8'))
-    if not data.get('forecast_run_id') or len(data.get('days', [])) != 11:
-        raise RuntimeError('Incomplete D+2...D+12 forecast')
+    slot = data.get('issue_slot')
+    if slot not in ('morning', 'afternoon'):
+        raise RuntimeError('Missing or invalid issue_slot')
+    expected_horizons = list(range(1, 12)) if slot == 'morning' else list(range(2, 13))
+    actual_horizons = [int(x.get('d_plus', -1)) for x in data.get('days', [])]
+    if not data.get('forecast_run_id') or actual_horizons != expected_horizons:
+        raise RuntimeError(
+            f'Incomplete {slot} forecast: expected {expected_horizons}, got {actual_horizons}'
+        )
+    if any(x.get('value_type') != 'forecast' for x in data.get('days', [])):
+        raise RuntimeError('Forecast day missing value_type=forecast')
+    published = data.get('published_day_ahead', [])
+    expected_published = [0] if slot == 'morning' else [0, 1]
+    actual_published = [int(x.get('d_plus', -1)) for x in published]
+    if actual_published != expected_published:
+        raise RuntimeError(
+            f'Wrong published day-ahead set for {slot}: {actual_published}'
+        )
+    if any(x.get('value_type') != 'day_ahead' for x in published):
+        raise RuntimeError('Published day missing value_type=day_ahead')
     for field in ['forecast_issue_time', 'generated_at_utc']:
         if datetime.fromisoformat(data[field].replace('Z', '+00:00')).timestamp() < started:
             raise RuntimeError('Stale forecast: ' + field)

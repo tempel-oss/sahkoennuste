@@ -62,6 +62,7 @@ jobs:
           FINGRID_API_KEY: ${{ secrets.FINGRID_API_KEY }}
           ENTSOE_API_TOKEN: ${{ secrets.ENTSOE_API_TOKEN }}
           PYTHONUNBUFFERED: "1"
+          FORECAST_ISSUE_SLOT: ${{ needs.gate.outputs.slot }}
         run: |
           echo "FORECAST_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
           python scripts/cloud_runner.py

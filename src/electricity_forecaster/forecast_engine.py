@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 import json
 import math
+import os
 import statistics
 import uuid
 
@@ -79,6 +80,22 @@ MODEL_NAME = "fundamental_baseline"
 MODEL_VERSION = "0.7.1"
 
 
+
+def resolve_issue_slot(now_utc: datetime | None = None) -> str:
+    # Explicit 06:15/16:15 forecast origin; env wins over clock fallback.
+    forced = os.getenv("FORECAST_ISSUE_SLOT", "").strip().lower()
+    if forced in {"morning", "afternoon"}:
+        return forced
+    local = (now_utc or datetime.now(timezone.utc)).astimezone(HELSINKI)
+    return "morning" if (local.hour, local.minute) < (12, 0) else "afternoon"
+
+
+def forecast_horizon_for_slot(slot: str) -> tuple[int, int]:
+    if slot == "morning":
+        return 1, 11
+    if slot == "afternoon":
+        return 2, 12
+    raise ValueError(f"Unknown forecast issue slot: {slot!r}")
 def _parse_dt(s: str) -> datetime:
     s = str(s).strip()
     if s.endswith("Z"):
@@ -312,6 +329,8 @@ def make_forecast() -> tuple[str, int]:
     init_db()
     now_utc = datetime.now(timezone.utc).replace(microsecond=0)
     now_local = now_utc.astimezone(HELSINKI)
+    issue_slot = resolve_issue_slot(now_utc)
+    horizon_start, horizon_end = forecast_horizon_for_slot(issue_slot)
     run_id = now_utc.strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
 
     with connect() as c:
@@ -354,7 +373,7 @@ def make_forecast() -> tuple[str, int]:
 
         # Build all target hourly fundamentals first.
         hourly: list[dict] = []
-        for day_h in range(2, 13):
+        for day_h in range(horizon_start, horizon_end + 1):
             target_date = now_local.date() + timedelta(days=day_h)
             local_start = datetime.combine(target_date, time(0, 0), HELSINKI)
             local_end = local_start + timedelta(days=1)
@@ -379,7 +398,7 @@ def make_forecast() -> tuple[str, int]:
                 dt += timedelta(hours=1)
 
         # Anchor the residual sensitivity against D+2 if tomorrow features are unavailable.
-        anchor_candidates = [r["net_load"] for r in hourly if r["horizon"] == 2]
+        anchor_candidates = [r["net_load"] for r in hourly if r["horizon"] == horizon_start]
         anchor_net = statistics.mean(anchor_candidates) if anchor_candidates else load_fallback
         all_nets = [r["net_load"] for r in hourly]
         net_q75 = _quantile(all_nets, 0.75) or anchor_net
@@ -387,7 +406,7 @@ def make_forecast() -> tuple[str, int]:
         hourly_rows_db = []
         daily_rows_db = []
         daily_output = []
-        for day_h in range(2, 13):
+        for day_h in range(horizon_start, horizon_end + 1):
             rows = [r for r in hourly if r["horizon"] == day_h]
             for r in rows:
                 loc = r["local_dt"]

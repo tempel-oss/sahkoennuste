@@ -4,7 +4,7 @@ import json, sqlite3, html, math, statistics
 from datetime import datetime, timezone, timedelta
 from .config import ROOT
 from .db import connect, init_db
-from .forecast_engine import HELSINKI
+from .forecast_engine import HELSINKI, resolve_issue_slot
 from .model_registry import model_status
 from .forecast_quality import quality_summary
 
@@ -64,9 +64,9 @@ def _three_hour_window(rows, cheapest=True):
     if not best: return None
     return f"{best[1]:%H:%M}–{best[2]:%H:%M}"
 
-def _published_prices(con):
-    now_local=datetime.now(timezone.utc).astimezone(HELSINKI)
-    wanted=[now_local.date(),now_local.date()+timedelta(days=1)]
+def _published_prices(con, issue_slot, issue_time_utc=None):
+    now_local=(issue_time_utc or datetime.now(timezone.utc)).astimezone(HELSINKI)
+    wanted=[now_local.date()] if issue_slot=="morning" else [now_local.date(),now_local.date()+timedelta(days=1)]
     raw=con.execute('''SELECT mp.valid_time,mp.price_eur_mwh,pr.issue_time
                        FROM market_prices mp JOIN price_runs pr ON pr.run_id=mp.run_id
                        WHERE mp.area='FI' ORDER BY pr.issue_time DESC''').fetchall()
@@ -82,7 +82,7 @@ def _published_prices(con):
     for idx,d in enumerate(wanted):
         vals=grouped[d]; prices=[v for _,v in vals]
         out.append({
-          "date":d.isoformat(),"d_plus":idx,"published":bool(prices),
+          "date":d.isoformat(),"d_plus":idx,"value_type":"day_ahead","published":bool(prices),
           "mean_snt_kwh_vat":_safe(statistics.mean(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
           "min_snt_kwh_vat":_safe(min(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
           "max_snt_kwh_vat":_safe(max(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
@@ -124,6 +124,8 @@ def build_latest_outputs():
     if not meta:
         con.close(); raise RuntimeError("Onnistunutta hintaennusteajoa ei loydy.")
     run_id=meta["forecast_run_id"]; prev=_previous_run(con,run_id)
+    issue_dt=_parse_dt(meta["issue_time"])
+    issue_slot=resolve_issue_slot(issue_dt)
     rows=con.execute('''SELECT target_date,horizon_days,p10_eur_mwh,p50_eur_mwh,p90_eur_mwh,
              baseline_eur_mwh,min_p50_eur_mwh,max_p50_eur_mwh,
              cheapest_3h,expensive_3h,risk_level,drivers_json
@@ -134,7 +136,7 @@ def build_latest_outputs():
         u=con.execute('''SELECT weather_component,model_component,total_component
                          FROM uncertainty_components WHERE run_id=? AND target_date=?''',(run_id,td)).fetchone()
         days.append({
-          "date":td,"d_plus":int(r["horizon_days"]),
+          "date":td,"d_plus":int(r["horizon_days"]),"value_type":"forecast",
           "p10_snt_kwh_vat":_safe(float(r["p10_eur_mwh"])*EURMWH_TO_SNTKWH_VAT),
           "p50_snt_kwh_vat":_safe(float(r["p50_eur_mwh"])*EURMWH_TO_SNTKWH_VAT),
           "p90_snt_kwh_vat":_safe(float(r["p90_eur_mwh"])*EURMWH_TO_SNTKWH_VAT),
@@ -148,12 +150,12 @@ def build_latest_outputs():
     payload={
       "schema_version":"1.4",
       "generated_at_utc":datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-      "forecast_run_id":run_id,"forecast_issue_time":meta["issue_time"],
+      "forecast_run_id":run_id,"forecast_issue_time":meta["issue_time"],"issue_slot":issue_slot,
       "model":{"name":meta["model_name"],"version":meta["model_version"],
                "trained_ml":meta["model_name"]!="fundamental_baseline"},
       "model_status":model_status(),"forecast_quality":quality_summary(),"previous_forecast_run_id":prev["forecast_run_id"] if prev else None,
       "data_quality":meta["data_quality"],"freshness":_freshness(con),
-      "published_day_ahead":_published_prices(con),"days":days
+      "published_day_ahead":_published_prices(con,issue_slot,issue_dt),"days":days
     }
     con.close()
     jp=OUTPUT_DIR/"latest_forecast.json"; jp.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding="utf-8")
@@ -263,31 +265,55 @@ def _format_helsinki_time(value):
     except Exception:
         return str(value)
 
+def _value_badge(item):
+    value_type=item.get("value_type")
+    if value_type=="day_ahead":
+        if item.get("published",True):
+            bg,fg,label="#e8f7ee","#147b43","Julkaistu"
+        else:
+            bg,fg,label="#fff4df","#b56b0b","Ei julkaistu"
+    elif value_type=="forecast":
+        bg,fg,label="#eaf1ff","#0e4fc4","Ennuste"
+    else:
+        bg,fg,label="#eef1f5","#657085","Tuntematon"
+    return (f'<span style="display:inline-block;margin-top:5px;border-radius:999px;'
+            f'padding:3px 7px;font-size:.64rem;font-weight:800;'
+            f'background:{bg};color:{fg}">{label}</span>')
+
 def _render_html(p):
+    forecast_days=p.get("days",[])
+    if forecast_days:
+        hmin=min(int(d["d_plus"]) for d in forecast_days)
+        hmax=max(int(d["d_plus"]) for d in forecast_days)
+        forecast_heading=f"D+{hmin}–D+{hmax} ennuste"
+    else:
+        forecast_heading="Ennuste"
     pub=[]
     for x in p["published_day_ahead"]:
         dlabel="Tänään" if x["d_plus"]==0 else "Huomenna"
         accent="blue" if x["d_plus"]==0 else "green"
         tag="D0" if x["d_plus"]==0 else "D+1"
+        badge_html=_value_badge(x)
         if x["published"]:
             pub.append(f'''<article class="price-card {accent}">
-              <div class="price-top"><div><span class="dtag">{tag}</span><div class="dayname">{dlabel}<small>{_weekday_fi(x["date"])}</small></div></div></div>
+              <div class="price-top"><div><span class="dtag">{tag}</span><div class="dayname">{dlabel}<small>{_weekday_fi(x["date"])}</small>{badge_html}</div></div></div>
               <div class="hero-price">{_fmt(x["mean_snt_kwh_vat"])} <span>snt/kWh</span></div>
               <div class="statrow"><span>Min <b class="good">{_fmt(x["min_snt_kwh_vat"])}</b></span><span>Keski <b>{_fmt(x["mean_snt_kwh_vat"])}</b></span><span>Max <b class="bad">{_fmt(x["max_snt_kwh_vat"])}</b></span></div>
               <div class="window-grid"><div><span>Halvin 3 h</span><b>{html.escape(x["cheapest_3h"] or "—")}</b></div><div><span>Kallein 3 h</span><b>{html.escape(x["expensive_3h"] or "—")}</b></div></div>
             </article>''')
         else:
-            pub.append(f'''<article class="price-card {accent} pending"><div class="price-top"><div><span class="dtag">{tag}</span><div class="dayname">{dlabel}<small>{_weekday_fi(x["date"])}</small></div></div></div><div class="hero-price small">Ei julkaistu</div><div class="muted">FI day-ahead -hintaa ei ole vielä tietokannassa.</div></article>''')
+            pub.append(f'''<article class="price-card {accent} pending"><div class="price-top"><div><span class="dtag">{tag}</span><div class="dayname">{dlabel}<small>{_weekday_fi(x["date"])}</small>{badge_html}</div></div></div><div class="hero-price small">Ei julkaistu</div><div class="muted">FI day-ahead -hintaa ei ole vielä tietokannassa.</div></article>''')
 
     rows=[]; mobile=[]
     for d in p["days"]:
+        forecast_badge=_value_badge(d)
         ch=d.get("change_from_previous"); delta=float(ch["delta"]) if ch and ch.get("delta") is not None else None
         change="—" if delta is None else f"{delta:+.2f}"
         chcls="" if delta is None else ("rise" if delta>0 else ("fall" if delta<0 else ""))
         arrow="" if delta is None else ("↑" if delta>0 else ("↓" if delta<0 else "→"))
         r=(d["risk"] or "—").lower(); riskcls="high" if "kork" in r else ("low" if "mat" in r else "med")
-        rows.append(f'''<tr><td><b>D+{d["d_plus"]}</b><small>{_weekday_fi(d["date"])}</small></td><td class="p50">{_fmt(d["p50_snt_kwh_vat"])}</td><td>{_fmt(d["p10_snt_kwh_vat"])} – {_fmt(d["p90_snt_kwh_vat"])}</td><td class="change-cell {chcls}">{change} {arrow}<small>vs edellinen</small></td><td><span class="risk {riskcls}">{html.escape(d["risk"] or "—")}</span></td></tr>''')
-        mobile.append(f'''<article class="forecast-day"><div><b>D+{d["d_plus"]}</b><small>{_weekday_fi(d["date"])}</small></div><div class="mobile-p50">{_fmt(d["p50_snt_kwh_vat"])}<small>snt/kWh</small></div><div class="mobile-range">P10–P90<br><b>{_fmt(d["p10_snt_kwh_vat"])} – {_fmt(d["p90_snt_kwh_vat"])}</b></div><div class="mobile-change {chcls}">{change} {arrow}<small>vs edellinen</small></div><span class="risk {riskcls}">{html.escape(d["risk"] or "—")}</span></article>''')
+        rows.append(f'''<tr><td><b>D+{d["d_plus"]}</b><small>{_weekday_fi(d["date"])}</small>{forecast_badge}</td><td class="p50">{_fmt(d["p50_snt_kwh_vat"])}</td><td>{_fmt(d["p10_snt_kwh_vat"])} – {_fmt(d["p90_snt_kwh_vat"])}</td><td class="change-cell {chcls}">{change} {arrow}<small>vs edellinen</small></td><td><span class="risk {riskcls}">{html.escape(d["risk"] or "—")}</span></td></tr>''')
+        mobile.append(f'''<article class="forecast-day"><div><b>D+{d["d_plus"]}</b><small>{_weekday_fi(d["date"])}</small>{forecast_badge}</div><div class="mobile-p50">{_fmt(d["p50_snt_kwh_vat"])}<small>snt/kWh</small></div><div class="mobile-range">P10–P90<br><b>{_fmt(d["p10_snt_kwh_vat"])} – {_fmt(d["p90_snt_kwh_vat"])}</b></div><div class="mobile-change {chcls}">{change} {arrow}<small>vs edellinen</small></div><span class="risk {riskcls}">{html.escape(d["risk"] or "—")}</span></article>''')
 
     labels={"fresh":"Tuore","aging":"Ikääntyvä","stale":"Vanhentunut","unknown":"Ei tietoa"}
     logos={"Fingrid":"grid","Nord Pool":"bolt","Sää":"sun","ENTSO-E":"check"}
@@ -375,7 +401,7 @@ main{{max-width:1080px;margin:-34px auto 0;padding:0 18px 38px}}.source-strip{{b
 <header class="app-header"><div class="header-inner"><div class="brand"><span class="logo">{_icon_svg("bolt")}</span><div><h1>Sähköennuste</h1><p>Suomen pörssisähkö</p><div class="updated">◷ Päivitetty <span id="updated-local" data-utc="{html.escape(str(p["forecast_issue_time"]))}">{_format_helsinki_time(p["forecast_issue_time"])}</span> <span class="tz-label">Suomen aika</span></div></div></div><div class="refresh">↻</div></div></header>
 <main><section class="source-strip">{"".join(fresh)}</section>
 <h2 class="section-title">Julkaistut day-ahead-hinnat <span class="info">i</span></h2><section class="price-grid">{"".join(pub)}</section>
-<h2 class="section-title">D+2–D+12 ennuste <span class="info">i</span></h2><section class="card desktop-table"><div class="tablewrap"><table><thead><tr><th>Päivä</th><th>P50 (snt/kWh)</th><th>P10–P90</th><th>Vs. edellinen</th><th>Riski</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div></section><section class="mobile-forecast">{"".join(mobile)}</section>
+<h2 class="section-title">{forecast_heading} <span class="info">i</span></h2><section class="card desktop-table"><div class="tablewrap"><table><thead><tr><th>Päivä</th><th>P50 (snt/kWh)</th><th>P10–P90</th><th>Vs. edellinen</th><th>Riski</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div></section><section class="mobile-forecast">{"".join(mobile)}</section>
 <h2 class="section-title">12 päivän hintakehitys <span class="info">i</span></h2><section class="card"><div class="chart-head"><div class="legend"><span><i></i>P50</span><span><i class="band"></i>P10–P90</span></div></div><div class="chart-scroll">{_chart_svg(p)}</div></section>
 <section class="two-col" style="margin-top:16px"><div class="card"><h3 class="subhead">Mitä muuttui <span class="info">i</span></h3>{"".join(changes)}</div><div class="card"><h3 class="subhead">Mallin tila <span class="info">i</span></h3><div class="model-row"><span class="model-ic">{_icon_svg("trophy")}</span><span>Champion</span><b>{html.escape(str(champ["name"]))} {html.escape(str(champ["version"]))}</b></div><div class="model-row"><span class="model-ic">{_icon_svg("brain")}</span><span>Koulutettu ML</span><b>{'Kyllä' if champ.get("trained_ml") else 'Ei vielä'}</b></div><div class="model-row"><span class="model-ic">{_icon_svg("db")}</span><span>Pisteytettyjä tunteja</span><b>{ev["scored_hours"]}</b></div><div class="model-row"><span class="model-ic">{_icon_svg("check")}</span><span>Challenger-koulutus</span><b class="{'ready' if ready else ''}">{'Valmis' if ready else 'Ei vielä'}</b></div></div></section>
 <h2 class="section-title">Ennusteen laatu <span class="info">i</span></h2><section class="card">{quality_html}{quality_table}{readiness_html}</section>
