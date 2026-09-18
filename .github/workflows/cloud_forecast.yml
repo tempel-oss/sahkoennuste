@@ -73,6 +73,10 @@ jobs:
       - name: Archive successful forecast
         run: python scripts/cloud_archive.py --slot ${{ needs.gate.outputs.slot }}
 
+      - name: Audit forecast history
+        if: success()
+        run: python scripts/audit_forecast_history.py --days 14
+
       - name: Preserve forecast snapshot
         uses: actions/upload-artifact@v4
         with:
