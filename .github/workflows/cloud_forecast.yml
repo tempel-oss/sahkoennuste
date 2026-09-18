@@ -10,7 +10,7 @@ on:
     - cron: "15 14 * * *"
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
   actions: write
@@ -93,6 +93,16 @@ jobs:
         with:
           path: data/electricity_forecaster.sqlite3
           key: forecast-db-${{ github.run_id }}
+
+      - name: Persist latest forecast JSON to main
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f output/latest_forecast.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Update latest production forecast [skip ci]"
+          git push origin HEAD:main
 
       - uses: actions/upload-pages-artifact@v3
         with:
