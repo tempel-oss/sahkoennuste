@@ -70,6 +70,9 @@ jobs:
       - name: Validate output
         run: python scripts/cloud_validate.py
 
+      - name: Build publication status
+        run: python scripts/build_forecast_status.py
+
       - name: Archive successful forecast
         run: python scripts/cloud_archive.py --slot ${{ needs.gate.outputs.slot }}
 
@@ -98,12 +101,12 @@ jobs:
           path: data/electricity_forecaster.sqlite3
           key: forecast-db-${{ github.run_id }}
 
-      - name: Persist latest forecast JSON to main
+      - name: Persist latest forecast and status to main
         if: success()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f output/latest_forecast.json
+          git add -f output/latest_forecast.json output/forecast_status.json
           git diff --cached --quiet && exit 0
           git commit -m "Update latest production forecast [skip ci]"
           git push origin HEAD:main
