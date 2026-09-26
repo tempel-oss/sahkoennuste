@@ -82,12 +82,18 @@ def _published_prices(con, issue_slot, issue_time_utc=None):
     out=[]
     for idx,d in enumerate(wanted):
         vals=grouped[d]; prices=[v for _,v in vals]
+        vals_sorted=sorted(vals,key=lambda x:x[0])
+        hourly=[{"hour":dt.hour,"valid_time":dt.isoformat(),
+                 "price_snt_kwh_vat":_safe(v*EURMWH_TO_SNTKWH_VAT)} for dt,v in vals_sorted]
+        cheapest_hour=min(hourly,key=lambda h:h["price_snt_kwh_vat"]) if hourly else None
+        expensive_hour=max(hourly,key=lambda h:h["price_snt_kwh_vat"]) if hourly else None
         out.append({
           "date":d.isoformat(),"d_plus":idx,"value_type":"day_ahead","published":bool(prices),
           "mean_snt_kwh_vat":_safe(statistics.mean(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
           "min_snt_kwh_vat":_safe(min(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
           "max_snt_kwh_vat":_safe(max(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
           "cheapest_3h":_three_hour_window(vals,True),"expensive_3h":_three_hour_window(vals,False),
+          "cheapest_hour":cheapest_hour,"expensive_hour":expensive_hour,"hourly":hourly,
           "observations":len(prices),"price_run_issue_time":issue.get(d)
         })
     return out
@@ -337,23 +343,32 @@ def _price_tone(value):
 # Fraunces for headings, IBM Plex Sans/Mono for body and figures, and a teal<->terracotta
 # diverging scale standing in for the old five-colour rainbow (cheap/uncertain <-> expensive/risky).
 
+# Diverging 5-step price-tone ramp: two hues (teal / terracotta) + a neutral gray
+# midpoint, each arm monotone in lightness (darkest at the extremes, lightest at the
+# neutral centre) and monotone in chroma (most saturated at the extremes) so the
+# ramp reads as magnitude, not five arbitrary colours. Validated: OKLCH L/C per stop
+# increases/decreases monotonically outward from "normal" on both arms, and every
+# dot clears 3:1 contrast against the #F7F4EC page surface (3.35:1-8.57:1).
+# Text never wears the tone colour (only the small dot carries identity) — labels
+# stay in page ink, per the dataviz skill's "text wears text tokens" rule.
 _TONE_META = {
-  "price-tone-very-cheap":     ("Erittäin edullinen", "#E4F2EF", "#0B4F49", "#0B6E63"),
-  "price-tone-cheap":          ("Edullinen",           "#EAF3F1", "#0E6B60", "#2E9186"),
-  "price-tone-normal":         ("Tavallinen",          "#F1EFE9", "#6B6558", "#8A8577"),
-  "price-tone-expensive":      ("Kallis",              "#FBEEDD", "#8A4B12", "#D98A3D"),
-  "price-tone-very-expensive": ("Erittäin kallis",     "#F7E4E0", "#8C2E22", "#B03A2E"),
-  "price-tone-unknown":        ("Ei tietoa",           "#F1EFE9", "#6B6558", "#8A8577"),
+  "price-tone-very-cheap":     ("Erittäin edullinen", "#E4F0EE", "#0B4F49"),
+  "price-tone-cheap":          ("Edullinen",           "#EDF3F1", "#527E79"),
+  "price-tone-normal":         ("Tavallinen",          "#F1EFE9", "#8A8577"),
+  "price-tone-expensive":      ("Kallis",              "#F5EAE6", "#A66258"),
+  "price-tone-very-expensive": ("Erittäin kallis",     "#F7E4E0", "#B03A2E"),
+  "price-tone-unknown":        ("Ei tietoa",           "#F1EFE9", "#8A8577"),
 }
+_INK="#1C1B17"
 
 def _tone_pill(tone):
-    label,bg,fg,dot=_TONE_META.get(tone,_TONE_META["price-tone-unknown"])
+    label,bg,dot=_TONE_META.get(tone,_TONE_META["price-tone-unknown"])
     return (f'<span style="display:inline-flex;align-items:center;gap:6px;background:{bg};'
-            f'color:{fg};padding:7px 13px;border-radius:999px;font-size:14px;font-weight:700;'
+            f'color:{_INK};padding:7px 13px;border-radius:999px;font-size:14px;font-weight:700;'
             f'white-space:nowrap;"><span style="width:7px;height:7px;border-radius:50%;'
             f'background:{dot};"></span>{html.escape(label)}</span>')
 
-_RISK_META = {"low":("#E4F2EF","#0B4F49","#0B6E63"),"med":("#FBEEDD","#8A4B12","#D98A3D"),"high":("#F7E4E0","#8C2E22","#B03A2E")}
+_RISK_META = {"low":("#E4F2EF","#0B6E63"),"med":("#FBEEDD","#D98A3D"),"high":("#F7E4E0","#B03A2E")}
 
 def _risk_class(risk_text):
     r=(risk_text or "—").lower()
@@ -361,16 +376,16 @@ def _risk_class(risk_text):
 
 def _risk_pill(risk_text):
     cls=_risk_class(risk_text)
-    bg,fg,dot=_RISK_META[cls]
+    bg,dot=_RISK_META[cls]
     label=html.escape(risk_text or "—")
     return (f'<span style="display:inline-flex;align-items:center;gap:5px;background:{bg};'
-            f'color:{fg};padding:5px 11px;border-radius:999px;font-size:13.5px;font-weight:700;">'
+            f'color:{_INK};padding:5px 11px;border-radius:999px;font-size:13.5px;font-weight:700;">'
             f'<span style="width:6px;height:6px;border-radius:50%;background:{dot};"></span>{label}</span>')
 
 def _change_arrow(delta):
     if delta is None: return "→","#8A8577"
-    if delta>0.0001: return "↑","#D98A3D"
-    if delta<-0.0001: return "↓","#0B6E63"
+    if delta>0.0001: return "↑","#B03A2E"
+    if delta<-0.0001: return "↓","#0B4F49"
     return "→","#8A8577"
 
 def _factor_value(dg,key,unit):
@@ -414,6 +429,82 @@ def _narrative_paragraphs(p):
             para2+=" "+extra[0:1].upper()+extra[1:]+"."
     return para1,para2
 
+def _hourly_bar_chart(hourly, now_hour=None):
+    """24-bar hourly price chart for one published day-ahead day: bar height is the
+    exact hourly price (zero-baselined, since Finnish spot prices occasionally go
+    negative), bar colour is the same 5-step price-tone ramp used on the pill next
+    to it, and the cheapest/priciest hour are direct-labelled on the chart itself.
+    A native <title> per bar gives a free hover tooltip and is screen-reader
+    reachable; the caller also renders a <details> table twin of the same data."""
+    hourly=[h for h in hourly if h.get("price_snt_kwh_vat") is not None]
+    if not hourly:
+        return '<div class="empty-chart">Tuntihintoja ei ole vielä saatavilla.</div>'
+    n=len(hourly)
+    W,H,left,right,top,bottom=900,190,44,14,18,34
+    prices=[h["price_snt_kwh_vat"] for h in hourly]
+    pmin=min(0.0,min(prices)); pmax=max(prices)
+    pad=max(0.3,(pmax-pmin)*0.20)
+    ymin=(pmin-pad) if pmin<0 else 0.0
+    ymax=pmax+pad
+    if ymax-ymin<1: ymax=ymin+1
+    plot_w=W-left-right; plot_h=H-top-bottom
+    gap=2.0
+    bw=max(3.0,(plot_w-(n-1)*gap)/n)
+    def X(i): return left+i*(bw+gap)
+    def Y(v): return top+plot_h*(1-(float(v)-ymin)/(ymax-ymin))
+    y0=Y(0.0)
+    cheapest=min(hourly,key=lambda h:h["price_snt_kwh_vat"])
+    expensive=max(hourly,key=lambda h:h["price_snt_kwh_vat"])
+    grid=[]
+    for i in range(4):
+        val=ymin+(ymax-ymin)*i/3
+        y=Y(val)
+        grid.append(f'<line x1="{left}" y1="{y:.1f}" x2="{W-right}" y2="{y:.1f}" class="gridline"/>')
+        grid.append(f'<text x="{left-8}" y="{y+4:.1f}" text-anchor="end" class="axis">{_fmt_fi(val,1)}</text>')
+    grid.append(f'<line x1="{left}" y1="{y0:.1f}" x2="{W-right}" y2="{y0:.1f}" class="zeroline"/>')
+    bars=[]
+    for i,h in enumerate(hourly):
+        v=h["price_snt_kwh_vat"]; hr=h["hour"]
+        x=X(i); y=Y(v)
+        top_y=min(y,y0); bar_h=max(1.5,abs(y-y0))
+        color=_TONE_META.get(_price_tone(v),_TONE_META["price-tone-unknown"])[2]
+        is_extreme=(h is cheapest) or (h is expensive)
+        label=f"klo {hr:02d}–{(hr+1)%24:02d}: {_fmt_fi(v,2)} snt/kWh"
+        bars.append(
+          f'<rect x="{x:.1f}" y="{top_y:.1f}" width="{bw:.1f}" height="{bar_h:.1f}" rx="3" '
+          f'fill="{color}" opacity="{1.0 if is_extreme else 0.8}"><title>{html.escape(label)}</title></rect>'
+        )
+        if now_hour is not None and hr==now_hour:
+            nx=x+bw/2
+            bars.append(f'<line x1="{nx:.1f}" y1="{top-6}" x2="{nx:.1f}" y2="{H-bottom}" class="nowline"/>')
+            bars.append(f'<text x="{nx:.1f}" y="{top-9}" text-anchor="middle" class="nowlabel">nyt</text>')
+        if hr%3==0:
+            bars.append(f'<text x="{x+bw/2:.1f}" y="{H-bottom+16}" text-anchor="middle" class="hourlab">{hr:02d}</text>')
+    for h in (cheapest,expensive):
+        i=hourly.index(h); x=X(i)+bw/2; y=min(Y(h["price_snt_kwh_vat"]),y0)
+        bars.append(f'<text x="{x:.1f}" y="{y-6:.1f}" text-anchor="middle" class="value-label">{_fmt_fi(h["price_snt_kwh_vat"],2)}</text>')
+    return f'<svg class="hourly-chart" viewBox="0 0 {W} {H}">{"".join(grid)}{"".join(bars)}</svg>'
+
+def _hourly_table(hourly):
+    """Accessible table twin of the hourly bar chart, tucked behind a native
+    <details> disclosure so it doesn't compete with the chart for attention."""
+    hourly=[h for h in hourly if h.get("price_snt_kwh_vat") is not None]
+    if not hourly:
+        return ""
+    rows=[]
+    for h in hourly:
+        hr=h["hour"]; v=h["price_snt_kwh_vat"]
+        pill=_tone_pill(_price_tone(v))
+        rows.append(f'<tr><td style="padding:7px 10px;border-bottom:1px solid rgba(28,27,23,0.06);font-family:\'IBM Plex Mono\',monospace;">{hr:02d}–{(hr+1)%24:02d}</td>'
+                    f'<td style="padding:7px 10px;border-bottom:1px solid rgba(28,27,23,0.06);font-family:\'IBM Plex Mono\',monospace;font-weight:600;">{_fmt_fi(v,2)}</td>'
+                    f'<td style="padding:7px 10px;border-bottom:1px solid rgba(28,27,23,0.06);">{pill}</td></tr>')
+    return (f'<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:14px;font-weight:600;color:#0B4F49;">Näytä kaikki tunnit</summary>'
+            f'<div style="overflow-x:auto;margin-top:10px;"><table style="width:100%;min-width:280px;">'
+            f'<thead><tr><th style="text-align:left;font-size:12.5px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:6px 10px;">Klo</th>'
+            f'<th style="text-align:left;font-size:12.5px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:6px 10px;">snt/kWh</th>'
+            f'<th style="text-align:left;font-size:12.5px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:6px 10px;">Luokka</th></tr></thead>'
+            f'<tbody style="font-size:14.5px;">{"".join(rows)}</tbody></table></div></details>')
+
 _SHARED_STYLE = """
   body{margin:0;background:#F7F4EC;}
   a{color:#0B4F49;text-decoration:none;}
@@ -421,6 +512,10 @@ _SHARED_STYLE = """
   .stat-col+.stat-col{border-left:1px solid rgba(28,27,23,0.08);}
   table{border-collapse:collapse;}
   .gridline{stroke:#E7E3D9;stroke-width:1;}
+  .zeroline{stroke:#C9C4B4;stroke-width:1.2;}
+  .nowline{stroke:#1C1B17;stroke-width:1;stroke-dasharray:2,2;opacity:.55;}
+  .nowlabel{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;fill:#1C1B17;}
+  .hourlab{font-family:'IBM Plex Mono',monospace;font-size:11px;fill:#8A8577;}
   .axis,.xlab{font-family:'IBM Plex Mono',monospace;font-size:12px;fill:#8A8577;}
   .xlab2{font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;fill:#3A382F;}
   .value-label{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;fill:#1C1B17;}
@@ -473,12 +568,18 @@ def _render_html(p):
     """Consumer page ('Kuluttaja'): today/tomorrow price, the 12-day outlook, a short
     plain-language recap of what changed and why, and a link through to Diagnostiikka."""
     accent="#0B4F49"
+    now_hour=datetime.now(HELSINKI).hour
     pub_cards=[]
     for x in p.get("published_day_ahead",[]):
         d_plus=x.get("d_plus",0)
         dlabel="Tänään" if d_plus==0 else ("Huomenna" if d_plus==1 else f"D+{d_plus}")
         if x.get("published"):
             pill=_tone_pill(_price_tone(x.get("mean_snt_kwh_vat")))
+            hourly=x.get("hourly") or []
+            cheap_h=x.get("cheapest_hour"); exp_h=x.get("expensive_hour")
+            def _hr_range(h): return f'klo {h["hour"]:02d}–{(h["hour"]+1)%24:02d}' if h else "—"
+            chart_svg=_hourly_bar_chart(hourly, now_hour if d_plus==0 else None)
+            table_html=_hourly_table(hourly)
             pub_cards.append(f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:18px;padding:26px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:10px;">
           <div>
@@ -493,16 +594,12 @@ def _render_html(p):
           <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Keski</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("mean_snt_kwh_vat"),2)}</div></div>
           <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Max</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("max_snt_kwh_vat"),2)}</div></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div style="background:#F7F4EC;border-radius:12px;padding:12px;">
-            <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#8A8577;margin-bottom:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#0B6E63;"></span>Halvin 3 h</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:16px;">{html.escape(x.get("cheapest_3h") or "—")}</div>
-          </div>
-          <div style="background:#F7F4EC;border-radius:12px;padding:12px;">
-            <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#8A8577;margin-bottom:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#B03A2E;"></span>Kallein 3 h</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:16px;">{html.escape(x.get("expensive_3h") or "—")}</div>
-          </div>
+        <div style="margin:4px 0 2px;">{chart_svg}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:#3A382F;"><span style="width:6px;height:6px;border-radius:50%;background:#0B4F49;flex:0 0 auto;"></span>Halvin tunti: <b style="font-family:'IBM Plex Mono',monospace;">{_hr_range(cheap_h)} · {_fmt_fi(cheap_h["price_snt_kwh_vat"] if cheap_h else None,2)}</b></div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:#3A382F;"><span style="width:6px;height:6px;border-radius:50%;background:#B03A2E;flex:0 0 auto;"></span>Kallein tunti: <b style="font-family:'IBM Plex Mono',monospace;">{_hr_range(exp_h)} · {_fmt_fi(exp_h["price_snt_kwh_vat"] if exp_h else None,2)}</b></div>
         </div>
+        {table_html}
       </div>''')
         else:
             pub_cards.append(f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:18px;padding:26px;">
