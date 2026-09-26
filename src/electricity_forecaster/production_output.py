@@ -82,11 +82,16 @@ def _published_prices(con, issue_slot, issue_time_utc=None):
     out=[]
     for idx,d in enumerate(wanted):
         vals=grouped[d]; prices=[v for _,v in vals]
+        vals_sorted=sorted(vals,key=lambda x:x[0])
         # The Nordic day-ahead market publishes sub-hourly (15-min) prices; average
         # them per clock hour so the chart/table always show exactly one value per
-        # hour, regardless of the underlying settlement resolution.
+        # hour, regardless of the underlying settlement resolution. Min/max below
+        # stay at the *native* resolution (so they can differ from the hourly
+        # chart's cheapest/priciest hour) — carry an explicit detail record for
+        # each so the UI can label which resolution/instant they refer to instead
+        # of silently mixing the two.
         by_hour={}
-        for dt,v in vals:
+        for dt,v in vals_sorted:
             hkey=dt.replace(minute=0,second=0,microsecond=0)
             by_hour.setdefault(hkey,[]).append(v)
         hourly=[{"hour":hkey.hour,"valid_time":hkey.isoformat(),
@@ -94,11 +99,23 @@ def _published_prices(con, issue_slot, issue_time_utc=None):
                 for hkey,hvals in sorted(by_hour.items())]
         cheapest_hour=min(hourly,key=lambda h:h["price_snt_kwh_vat"]) if hourly else None
         expensive_hour=max(hourly,key=lambda h:h["price_snt_kwh_vat"]) if hourly else None
+        steps=[b[0]-a[0] for a,b in zip(vals_sorted,vals_sorted[1:]) if b[0]>a[0]]
+        step=min(steps) if steps else timedelta(hours=1)
+        step_minutes=max(1,int(round(step.total_seconds()/60)))
+        min_detail=max_detail=None
+        if vals_sorted:
+            min_dt,min_v=min(vals_sorted,key=lambda x:x[1])
+            max_dt,max_v=max(vals_sorted,key=lambda x:x[1])
+            min_detail={"price_snt_kwh_vat":_safe(min_v*EURMWH_TO_SNTKWH_VAT),"valid_time":min_dt.isoformat(),
+                        "window":f"{min_dt:%H:%M}–{(min_dt+step):%H:%M}","resolution_minutes":step_minutes}
+            max_detail={"price_snt_kwh_vat":_safe(max_v*EURMWH_TO_SNTKWH_VAT),"valid_time":max_dt.isoformat(),
+                        "window":f"{max_dt:%H:%M}–{(max_dt+step):%H:%M}","resolution_minutes":step_minutes}
         out.append({
           "date":d.isoformat(),"d_plus":idx,"value_type":"day_ahead","published":bool(prices),
           "mean_snt_kwh_vat":_safe(statistics.mean(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
           "min_snt_kwh_vat":_safe(min(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
           "max_snt_kwh_vat":_safe(max(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
+          "min_price_detail":min_detail,"max_price_detail":max_detail,"price_resolution_minutes":step_minutes,
           "cheapest_3h":_three_hour_window(vals,True),"expensive_3h":_three_hour_window(vals,False),
           "cheapest_hour":cheapest_hour,"expensive_hour":expensive_hour,"hourly":hourly,
           "observations":len(prices),"price_run_issue_time":issue.get(d)
@@ -605,9 +622,20 @@ def _render_html(p):
             pill=_tone_pill(_price_tone(x.get("mean_snt_kwh_vat")))
             hourly=x.get("hourly") or []
             cheap_h=x.get("cheapest_hour"); exp_h=x.get("expensive_hour")
+            min_d=x.get("min_price_detail"); max_d=x.get("max_price_detail")
+            res_min=x.get("price_resolution_minutes") or 60
             def _hr_range(h): return f'klo {h["hour"]:02d}–{(h["hour"]+1)%24:02d}' if h else "—"
+            def _res_caption(detail):
+                # Only worth calling out when the native resolution is finer than
+                # an hour — at plain hourly resolution this would just repeat the
+                # cheapest/priciest-hour line below.
+                if not detail or detail.get("resolution_minutes",60)>=60: return ""
+                return (f'<div style="font-size:11px;color:#8A8577;margin-top:3px;line-height:1.3;">'
+                        f'klo {detail["window"]}<br>({detail["resolution_minutes"]} min)</div>')
             chart_svg=_hourly_bar_chart(hourly, now_hour if d_plus==0 else None)
             table_html=_hourly_table(hourly)
+            res_note=(f'Kaavio: tuntien keskiarvohinnat ({res_min} min -pohjadatasta)' if res_min!=60
+                       else 'Kaavio: tuntihinnat')
             pub_cards.append(f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:18px;padding:26px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:10px;">
           <div>
@@ -618,10 +646,11 @@ def _render_html(p):
         </div>
         <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:58px;line-height:1;color:#1C1B17;text-align:center;margin:14px 0 8px;">{_fmt_fi(x.get("mean_snt_kwh_vat"),2)}<span style="font-size:17px;font-weight:500;color:#8A8577;margin-left:6px;">snt/kWh</span></div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);text-align:center;margin:22px 0 18px;padding:14px 0;border-top:1px solid rgba(28,27,23,0.08);border-bottom:1px solid rgba(28,27,23,0.08);">
-          <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Min</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("min_snt_kwh_vat"),2)}</div></div>
+          <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Min</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("min_snt_kwh_vat"),2)}</div>{_res_caption(min_d)}</div>
           <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Keski</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("mean_snt_kwh_vat"),2)}</div></div>
-          <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Max</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("max_snt_kwh_vat"),2)}</div></div>
+          <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Max</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("max_snt_kwh_vat"),2)}</div>{_res_caption(max_d)}</div>
         </div>
+        <div style="font-size:12px;color:#8A8577;margin-bottom:6px;">{html.escape(res_note)}</div>
         <div style="margin:4px 0 2px;">{chart_svg}</div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
           <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:#3A382F;min-width:0;"><span style="width:6px;height:6px;border-radius:50%;background:#0B4F49;flex:0 0 auto;"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Halvin tunti: <b style="font-family:'IBM Plex Mono',monospace;">{_hr_range(cheap_h)} · {_fmt_fi(cheap_h["price_snt_kwh_vat"] if cheap_h else None,2)}</b></span></div>
