@@ -623,9 +623,9 @@ def _render_html(p):
           <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Max</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("max_snt_kwh_vat"),2)}</div></div>
         </div>
         <div style="margin:4px 0 2px;">{chart_svg}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;">
-          <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:#3A382F;"><span style="width:6px;height:6px;border-radius:50%;background:#0B4F49;flex:0 0 auto;"></span>Halvin tunti: <b style="font-family:'IBM Plex Mono',monospace;">{_hr_range(cheap_h)} · {_fmt_fi(cheap_h["price_snt_kwh_vat"] if cheap_h else None,2)}</b></div>
-          <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:#3A382F;"><span style="width:6px;height:6px;border-radius:50%;background:#B03A2E;flex:0 0 auto;"></span>Kallein tunti: <b style="font-family:'IBM Plex Mono',monospace;">{_hr_range(exp_h)} · {_fmt_fi(exp_h["price_snt_kwh_vat"] if exp_h else None,2)}</b></div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:#3A382F;min-width:0;"><span style="width:6px;height:6px;border-radius:50%;background:#0B4F49;flex:0 0 auto;"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Halvin tunti: <b style="font-family:'IBM Plex Mono',monospace;">{_hr_range(cheap_h)} · {_fmt_fi(cheap_h["price_snt_kwh_vat"] if cheap_h else None,2)}</b></span></div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:#3A382F;min-width:0;"><span style="width:6px;height:6px;border-radius:50%;background:#B03A2E;flex:0 0 auto;"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Kallein tunti: <b style="font-family:'IBM Plex Mono',monospace;">{_hr_range(exp_h)} · {_fmt_fi(exp_h["price_snt_kwh_vat"] if exp_h else None,2)}</b></span></div>
         </div>
         {table_html}
       </div>''')
