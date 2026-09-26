@@ -82,9 +82,16 @@ def _published_prices(con, issue_slot, issue_time_utc=None):
     out=[]
     for idx,d in enumerate(wanted):
         vals=grouped[d]; prices=[v for _,v in vals]
-        vals_sorted=sorted(vals,key=lambda x:x[0])
-        hourly=[{"hour":dt.hour,"valid_time":dt.isoformat(),
-                 "price_snt_kwh_vat":_safe(v*EURMWH_TO_SNTKWH_VAT)} for dt,v in vals_sorted]
+        # The Nordic day-ahead market publishes sub-hourly (15-min) prices; average
+        # them per clock hour so the chart/table always show exactly one value per
+        # hour, regardless of the underlying settlement resolution.
+        by_hour={}
+        for dt,v in vals:
+            hkey=dt.replace(minute=0,second=0,microsecond=0)
+            by_hour.setdefault(hkey,[]).append(v)
+        hourly=[{"hour":hkey.hour,"valid_time":hkey.isoformat(),
+                 "price_snt_kwh_vat":_safe(statistics.mean(hvals)*EURMWH_TO_SNTKWH_VAT)}
+                for hkey,hvals in sorted(by_hour.items())]
         cheapest_hour=min(hourly,key=lambda h:h["price_snt_kwh_vat"]) if hourly else None
         expensive_hour=max(hourly,key=lambda h:h["price_snt_kwh_vat"]) if hourly else None
         out.append({
@@ -435,12 +442,22 @@ def _hourly_bar_chart(hourly, now_hour=None):
     negative), bar colour is the same 5-step price-tone ramp used on the pill next
     to it, and the cheapest/priciest hour are direct-labelled on the chart itself.
     A native <title> per bar gives a free hover tooltip and is screen-reader
-    reachable; the caller also renders a <details> table twin of the same data."""
+    reachable; the caller also renders a <details> table twin of the same data.
+
+    The viewBox is sized close to the real card width (roughly 280-450px on
+    phone/desktop, see .price-grid) rather than the wide 900-unit desktop chart
+    used elsewhere on the page: an SVG without an explicit pixel width scales its
+    whole coordinate space — including text — down to fit its box, so a viewBox
+    far wider than the card was rendering the hour/price labels illegibly small
+    on a phone. Keeping the viewBox near 1:1 with the card, and taller/squarer
+    than a typical wide line chart, keeps the bars and their labels readable at
+    the sizes this chart is actually shown at, with .hourly-chart's own
+    (larger) text classes so the separate 12-day chart is untouched."""
     hourly=[h for h in hourly if h.get("price_snt_kwh_vat") is not None]
     if not hourly:
         return '<div class="empty-chart">Tuntihintoja ei ole vielä saatavilla.</div>'
     n=len(hourly)
-    W,H,left,right,top,bottom=900,190,44,14,18,34
+    W,H,left,right,top,bottom=360,300,46,10,18,40
     prices=[h["price_snt_kwh_vat"] for h in hourly]
     pmin=min(0.0,min(prices)); pmax=max(prices)
     pad=max(0.3,(pmax-pmin)*0.20)
@@ -448,8 +465,8 @@ def _hourly_bar_chart(hourly, now_hour=None):
     ymax=pmax+pad
     if ymax-ymin<1: ymax=ymin+1
     plot_w=W-left-right; plot_h=H-top-bottom
-    gap=2.0
-    bw=max(3.0,(plot_w-(n-1)*gap)/n)
+    gap=2.5
+    bw=max(4.0,(plot_w-(n-1)*gap)/n)
     def X(i): return left+i*(bw+gap)
     def Y(v): return top+plot_h*(1-(float(v)-ymin)/(ymax-ymin))
     y0=Y(0.0)
@@ -460,7 +477,7 @@ def _hourly_bar_chart(hourly, now_hour=None):
         val=ymin+(ymax-ymin)*i/3
         y=Y(val)
         grid.append(f'<line x1="{left}" y1="{y:.1f}" x2="{W-right}" y2="{y:.1f}" class="gridline"/>')
-        grid.append(f'<text x="{left-8}" y="{y+4:.1f}" text-anchor="end" class="axis">{_fmt_fi(val,1)}</text>')
+        grid.append(f'<text x="{left-8}" y="{y+4:.1f}" text-anchor="end" class="hbar-axis">{_fmt_fi(val,1)}</text>')
     grid.append(f'<line x1="{left}" y1="{y0:.1f}" x2="{W-right}" y2="{y0:.1f}" class="zeroline"/>')
     bars=[]
     for i,h in enumerate(hourly):
@@ -477,13 +494,16 @@ def _hourly_bar_chart(hourly, now_hour=None):
         if now_hour is not None and hr==now_hour:
             nx=x+bw/2
             bars.append(f'<line x1="{nx:.1f}" y1="{top-6}" x2="{nx:.1f}" y2="{H-bottom}" class="nowline"/>')
-            bars.append(f'<text x="{nx:.1f}" y="{top-9}" text-anchor="middle" class="nowlabel">nyt</text>')
+            bars.append(f'<text x="{nx:.1f}" y="{top-9}" text-anchor="middle" class="hbar-nowlabel">nyt</text>')
         if hr%3==0:
-            bars.append(f'<text x="{x+bw/2:.1f}" y="{H-bottom+16}" text-anchor="middle" class="hourlab">{hr:02d}</text>')
+            bars.append(f'<text x="{x+bw/2:.1f}" y="{H-bottom+20}" text-anchor="middle" class="hbar-hourlab">{hr:02d}</text>')
     for h in (cheapest,expensive):
         i=hourly.index(h); x=X(i)+bw/2; y=min(Y(h["price_snt_kwh_vat"]),y0)
-        bars.append(f'<text x="{x:.1f}" y="{y-6:.1f}" text-anchor="middle" class="value-label">{_fmt_fi(h["price_snt_kwh_vat"],2)}</text>')
-    return f'<svg class="hourly-chart" viewBox="0 0 {W} {H}">{"".join(grid)}{"".join(bars)}</svg>'
+        anchor,lx="middle",x
+        if i<=1: anchor,lx="start",X(i)
+        elif i>=n-2: anchor,lx="end",X(i)+bw
+        bars.append(f'<text x="{lx:.1f}" y="{y-8:.1f}" text-anchor="{anchor}" class="hbar-valuelabel">{_fmt_fi(h["price_snt_kwh_vat"],2)}</text>')
+    return f'<svg class="hourly-chart" viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMid meet">{"".join(grid)}{"".join(bars)}</svg>'
 
 def _hourly_table(hourly):
     """Accessible table twin of the hourly bar chart, tucked behind a native
@@ -519,6 +539,14 @@ _SHARED_STYLE = """
   .axis,.xlab{font-family:'IBM Plex Mono',monospace;font-size:12px;fill:#8A8577;}
   .xlab2{font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;fill:#3A382F;}
   .value-label{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;fill:#1C1B17;}
+  /* Hourly bar chart: rendered at a viewBox close to its real card width (see
+     _hourly_bar_chart), so it gets its own larger text classes rather than
+     reusing .axis/.value-label — those stay tuned for the wide 12-day chart. */
+  .hourly-chart{width:100%;height:auto;display:block;}
+  .hbar-nowlabel{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;fill:#1C1B17;}
+  .hbar-hourlab{font-family:'IBM Plex Mono',monospace;font-size:13px;fill:#8A8577;}
+  .hbar-axis{font-family:'IBM Plex Mono',monospace;font-size:13px;fill:#8A8577;}
+  .hbar-valuelabel{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;fill:#1C1B17;}
   .uncertainty{fill:#DCEDEA;opacity:.9;stroke:none;}
   .p50line{fill:none;stroke:#0B4F49;stroke-width:2.5;}
   .dot{fill:#F7F4EC;stroke:#0B4F49;stroke-width:2.5;}
