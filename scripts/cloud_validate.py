@@ -6,7 +6,7 @@ import os
 ROOT = Path(__file__).resolve().parents[1]
 
 def validate(root, started):
-    required = ['index.html', 'latest_forecast.html', 'latest_forecast.json', 'manifest.webmanifest', 'sw.js']
+    required = ['index.html', 'latest_forecast.html', 'diagnostics.html', 'latest_forecast.json', 'manifest.webmanifest', 'sw.js']
     for name in required:
         path = root / 'output' / name
         if not path.is_file() or not path.stat().st_size:
@@ -35,7 +35,7 @@ def validate(root, started):
     for field in ['forecast_issue_time', 'generated_at_utc']:
         if datetime.fromisoformat(data[field].replace('Z', '+00:00')).timestamp() < started:
             raise RuntimeError('Stale forecast: ' + field)
-    for name in ['index.html', 'latest_forecast.html']:
+    for name in ['index.html', 'latest_forecast.html', 'diagnostics.html']:
         if data['forecast_run_id'] not in (root / 'output' / name).read_text(encoding='utf-8'):
             raise RuntimeError('HTML and JSON forecast mismatch: ' + name)
     return data

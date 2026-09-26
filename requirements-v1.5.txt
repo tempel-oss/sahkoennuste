@@ -1,5 +1,14 @@
-pandas>=2.2
-numpy>=1.26
-requests>=2.31
-python-dotenv>=1.0
-pyarrow>=16.0
+# Floor+ceiling pins: the ceiling blocks the next major version (which is where a
+# behavioral change is most likely to silently break the ML training scripts, as
+# happened with the _fold_blocks purge-window bug). This is a safety net, not a
+# substitute for a real lock file - after installing, run
+# `python scripts/freeze_requirements.py` to write requirements-v1.5.lock.txt with
+# the exact resolved versions, and reinstall from that lock file on other machines.
+pandas>=2.2,<3.0
+# numpy 2.0 was a documented breaking release (C-API/ABI and promotion-rule
+# changes); the code here has only ever run against the 1.26.x line, so the
+# ceiling stops there instead of at the next numpy major.
+numpy>=1.26,<2.0
+requests>=2.31,<3.0
+python-dotenv>=1.0,<2.0
+pyarrow>=16.0,<19.0

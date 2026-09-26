@@ -2,14 +2,15 @@
 from __future__ import annotations
 import json, sqlite3, html, math, statistics
 from datetime import datetime, timezone, timedelta
-from .config import ROOT
+from .config import ROOT, EUR_MWH_TO_SNT_KWH_VAT
 from .db import connect, init_db
 from .forecast_engine import HELSINKI, resolve_issue_slot
 from .model_registry import model_status
 from .forecast_quality import quality_summary
 
-VAT = 1.255
-EURMWH_TO_SNTKWH_VAT = VAT / 10.0
+# Canonical VAT definition now lives in config.py (see the note there); re-exported
+# under this module's previous local name so the usage sites below don't change.
+EURMWH_TO_SNTKWH_VAT = EUR_MWH_TO_SNT_KWH_VAT
 OUTPUT_DIR = ROOT / "output"
 
 def _conn():
@@ -161,9 +162,41 @@ def build_latest_outputs():
     jp=OUTPUT_DIR/"latest_forecast.json"; jp.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding="utf-8")
     hp=OUTPUT_DIR/"latest_forecast.html"; hp.write_text(_render_html(payload),encoding="utf-8")
     (OUTPUT_DIR/"index.html").write_text(hp.read_text(encoding="utf-8"),encoding="utf-8")
+    dp=OUTPUT_DIR/"diagnostics.html"; dp.write_text(_render_diagnostics_html(payload),encoding="utf-8")
     return jp,hp,len(days)
 
 def _fmt(v): return "—" if v is None else f"{v:.2f}"
+
+def _fmt_fi(v,digits=1):
+    """Finnish-style decimal comma formatting, used throughout the redesigned UI."""
+    if v is None: return "—"
+    try:
+        x=float(v)
+        if not math.isfinite(x): return "—"
+    except Exception:
+        return "—"
+    x=round(x,digits)
+    if x==0: x=0.0  # avoid a stray "-0" from rounding
+    return f"{x:.{digits}f}".replace(".", ",")
+
+def _fmt_fi_signed(v,digits=2):
+    if v is None: return "—"
+    try:
+        x=float(v)
+        if not math.isfinite(x): return "—"
+    except Exception:
+        return "—"
+    x=round(x,digits)
+    if x==0: x=0.0
+    sign="+" if x>=0 else ""
+    return f"{sign}{x:.{digits}f}".replace(".", ",")
+
+def _fmt_int_fi(n):
+    try:
+        n=int(n)
+    except Exception:
+        return "—"
+    return f"{n:,}".replace(",", " ")
 
 
 def _icon_svg(kind):
@@ -214,7 +247,7 @@ def _chart_svg(p):
     for i in range(5):
         val=ymin+(ymax-ymin)*i/4; y=Y(val)
         grid.append(f'<line x1="{left}" y1="{y:.1f}" x2="{W-right}" y2="{y:.1f}" class="gridline"/>')
-        grid.append(f'<text x="{left-9}" y="{y+4:.1f}" text-anchor="end" class="axis">{val:.1f}</text>')
+        grid.append(f'<text x="{left-9}" y="{y+4:.1f}" text-anchor="end" class="axis">{_fmt_fi(val,1)}</text>')
     upper=[(X(i),Y(x["p90"] if x["p90"] is not None else x["p50"])) for i,x in enumerate(pts)]
     lower=[(X(i),Y(x["p10"] if x["p10"] is not None else x["p50"])) for i,x in reversed(list(enumerate(pts)))]
     area=" ".join(f"{x:.1f},{y:.1f}" for x,y in upper+lower)
@@ -223,7 +256,7 @@ def _chart_svg(p):
     for i,x in enumerate(pts):
         xx=X(i); yy=Y(x["p50"])
         marks.append(f'<circle cx="{xx:.1f}" cy="{yy:.1f}" r="4" class="dot"/>')
-        marks.append(f'<text x="{xx:.1f}" y="{yy-10:.1f}" text-anchor="middle" class="value-label">{x["p50"]:.2f}</text>')
+        marks.append(f'<text x="{xx:.1f}" y="{yy-10:.1f}" text-anchor="middle" class="value-label">{_fmt_fi(x["p50"],2)}</text>')
         marks.append(f'<text x="{xx:.1f}" y="{H-bottom+22}" text-anchor="middle" class="xlab">{int(x["date"][8:10])}.{int(x["date"][5:7])}.</text>')
         marks.append(f'<text x="{xx:.1f}" y="{H-bottom+39}" text-anchor="middle" class="xlab2">{x["label"]}</text>')
     return f'<svg class="price-chart" viewBox="0 0 {W} {H}">{"".join(grid)}<polygon points="{area}" class="uncertainty"/><polyline points="{line}" class="p50line"/>{"".join(marks)}</svg>'
@@ -299,223 +332,461 @@ def _price_tone(value):
         return "price-tone-expensive"
     return "price-tone-very-expensive"
 
-def _render_html(p):
-    forecast_days=p.get("days",[])
-    if forecast_days:
-        hmin=min(int(d["d_plus"]) for d in forecast_days)
-        hmax=max(int(d["d_plus"]) for d in forecast_days)
-        forecast_heading=f"D+{hmin}–D+{hmax} ennuste"
-    else:
-        forecast_heading="Ennuste"
-    pub=[]
-    for x in p["published_day_ahead"]:
-        dlabel="Tänään" if x["d_plus"]==0 else "Huomenna"
-        accent="blue" if x["d_plus"]==0 else "green"
-        tag="D0" if x["d_plus"]==0 else "D+1"
-        badge_html=_value_badge(x)
-        price_tone=_price_tone(x.get("mean_snt_kwh_vat"))
-        if x["published"]:
-            pub.append(f'''<article class="price-card {accent} {price_tone}">
-              <div class="price-top"><div><span class="dtag">{tag}</span><div class="dayname">{dlabel}<small>{_weekday_fi(x["date"])}</small>{badge_html}</div></div></div>
-              <div class="hero-price">{_fmt(x["mean_snt_kwh_vat"])} <span>snt/kWh</span></div>
-              <div class="statrow"><span>Min <b class="good">{_fmt(x["min_snt_kwh_vat"])}</b></span><span>Keski <b>{_fmt(x["mean_snt_kwh_vat"])}</b></span><span>Max <b class="bad">{_fmt(x["max_snt_kwh_vat"])}</b></span></div>
-              <div class="window-grid"><div><span>Halvin 3 h</span><b>{html.escape(x["cheapest_3h"] or "—")}</b></div><div><span>Kallein 3 h</span><b>{html.escape(x["expensive_3h"] or "—")}</b></div></div>
-            </article>''')
-        else:
-            pub.append(f'''<article class="price-card {accent} pending"><div class="price-top"><div><span class="dtag">{tag}</span><div class="dayname">{dlabel}<small>{_weekday_fi(x["date"])}</small>{badge_html}</div></div></div><div class="hero-price small">Ei julkaistu</div><div class="muted">FI day-ahead -hintaa ei ole vielä tietokannassa.</div></article>''')
+# --- Redesigned UI (2026-09): ivory/teal "Kuluttaja" + "Diagnostiikka" two-page layout. ---
+# Shared visual language between the two pages below: warm ivory background (#F7F4EC),
+# Fraunces for headings, IBM Plex Sans/Mono for body and figures, and a teal<->terracotta
+# diverging scale standing in for the old five-colour rainbow (cheap/uncertain <-> expensive/risky).
 
-    rows=[]; mobile=[]
-    for d in p["days"]:
-        forecast_badge=_value_badge(d)
-        price_tone=_price_tone(d.get("p50_snt_kwh_vat"))
-        ch=d.get("change_from_previous"); delta=float(ch["delta"]) if ch and ch.get("delta") is not None else None
-        change="—" if delta is None else f"{delta:+.2f}"
-        chcls="" if delta is None else ("rise" if delta>0 else ("fall" if delta<0 else ""))
-        arrow="" if delta is None else ("↑" if delta>0 else ("↓" if delta<0 else "→"))
-        r=(d["risk"] or "—").lower(); riskcls="high" if "kork" in r else ("low" if "mat" in r else "med")
-        rows.append(f'''<tr class="{price_tone}"><td><b>D+{d["d_plus"]}</b><small>{_weekday_fi(d["date"])}</small>{forecast_badge}</td><td class="p50">{_fmt(d["p50_snt_kwh_vat"])}</td><td>{_fmt(d["p10_snt_kwh_vat"])} – {_fmt(d["p90_snt_kwh_vat"])}</td><td class="change-cell {chcls}">{change} {arrow}<small>vs edellinen</small></td><td><span class="risk {riskcls}">{html.escape(d["risk"] or "—")}</span></td></tr>''')
-        mobile.append(f'''<article class="forecast-day {price_tone}"><div><b>D+{d["d_plus"]}</b><small>{_weekday_fi(d["date"])}</small>{forecast_badge}</div><div class="mobile-p50">{_fmt(d["p50_snt_kwh_vat"])}<small>snt/kWh</small></div><div class="mobile-range">P10–P90<br><b>{_fmt(d["p10_snt_kwh_vat"])} – {_fmt(d["p90_snt_kwh_vat"])}</b></div><div class="mobile-change {chcls}">{change} {arrow}<small>vs edellinen</small></div><span class="risk {riskcls}">{html.escape(d["risk"] or "—")}</span></article>''')
+_TONE_META = {
+  "price-tone-very-cheap":     ("Erittäin edullinen", "#E4F2EF", "#0B4F49", "#0B6E63"),
+  "price-tone-cheap":          ("Edullinen",           "#EAF3F1", "#0E6B60", "#2E9186"),
+  "price-tone-normal":         ("Tavallinen",          "#F1EFE9", "#6B6558", "#8A8577"),
+  "price-tone-expensive":      ("Kallis",              "#FBEEDD", "#8A4B12", "#D98A3D"),
+  "price-tone-very-expensive": ("Erittäin kallis",     "#F7E4E0", "#8C2E22", "#B03A2E"),
+  "price-tone-unknown":        ("Ei tietoa",           "#F1EFE9", "#6B6558", "#8A8577"),
+}
 
-    labels={"fresh":"Tuore","aging":"Ikääntyvä","stale":"Vanhentunut","unknown":"Ei tietoa"}
-    logos={"Fingrid":"grid","Nord Pool":"bolt","Sää":"sun","ENTSO-E":"check"}
-    fresh=[]
-    for x in p["freshness"]["sources"]:
-        fresh.append(f'''<div class="source-item"><span class="source-icon">{_icon_svg(logos.get(x["source"],"check"))}</span><div><b>{html.escape(x["source"])}</b><small class="{x["state"]}"><i></i>{labels[x["state"]]}</small></div></div>''')
+def _tone_pill(tone):
+    label,bg,fg,dot=_TONE_META.get(tone,_TONE_META["price-tone-unknown"])
+    return (f'<span style="display:inline-flex;align-items:center;gap:6px;background:{bg};'
+            f'color:{fg};padding:7px 13px;border-radius:999px;font-size:14px;font-weight:700;'
+            f'white-space:nowrap;"><span style="width:7px;height:7px;border-radius:50%;'
+            f'background:{dot};"></span>{html.escape(label)}</span>')
 
-    dg=p["days"][0].get("diagnostics",{}) if p.get("days") else {}
-    factor_specs=[("Kulutus","consumption_forecast","grid","MW"),("Tuuli","wind_forecast","wind","MW"),("Aurinko","solar_forecast","sun","MW"),("Residual load","residual_load","bolt","MW"),("Lämpötila","temperature","thermo","°C")]
-    factors=[]
-    for title,key,icon,unit in factor_specs:
-        x=dg.get(key,{})
-        val=x.get("value")
-        if val is None: v,u="—",""
-        elif unit=="MW" and abs(val)>=1000: v,u=f"{val/1000:.1f}","GW"
-        else: v,u=f"{val:.1f}",unit
-        factors.append(f'''<div class="factor"><span class="factor-icon">{_icon_svg(icon)}</span><div><small>{title}</small><b>{v} <em>{u}</em></b></div></div>''')
+_RISK_META = {"low":("#E4F2EF","#0B4F49","#0B6E63"),"med":("#FBEEDD","#8A4B12","#D98A3D"),"high":("#F7E4E0","#8C2E22","#B03A2E")}
 
-    changes=[]
-    for icon,tone,title,desc in _change_summary(p):
-        changes.append(f'''<div class="change-item"><span class="change-icon {tone}">{_icon_svg(icon)}</span><div><b>{html.escape(title)}</b><small>{html.escape(desc)}</small></div></div>''')
+def _risk_class(risk_text):
+    r=(risk_text or "—").lower()
+    return "high" if "kork" in r else ("low" if "mat" in r else "med")
 
-    ms=p["model_status"]; ev=ms["evaluation"]; champ=ms["champion"]; ready=ms["challenger_training_ready"]
-    fq=p.get("forecast_quality",{}); qo=fq.get("overall",{})
-    scored_hours=int(fq.get("scored_hours",0) or 0)
-    scored_runs=int(fq.get("scored_forecast_runs",0) or 0)
-    train_hours_pct=min(100, round(scored_hours/1000*100)) if scored_hours>=0 else 0
-    train_runs_pct=min(100, round(scored_runs/20*100)) if scored_runs>=0 else 0
-    train_pct=min(train_hours_pct,train_runs_pct)
-    wf_hours_pct=min(100, round(scored_hours/1500*100)) if scored_hours>=0 else 0
-    wf_runs_pct=min(100, round(scored_runs/30*100)) if scored_runs>=0 else 0
-    wf_pct=min(wf_hours_pct,wf_runs_pct)
-    cov="—" if qo.get("p10_p90_coverage") is None else f"{qo['p10_p90_coverage']*100:.0f}%"
-    quality_html=(
-      '<div class="quality-grid">'
-      f'<div class="quality-kpi"><span>MAE</span><b>{_fmt(qo.get("mae_eur_mwh"))}</b><small>EUR/MWh</small></div>'
-      f'<div class="quality-kpi"><span>Bias</span><b>{_fmt(qo.get("bias_eur_mwh"))}</b><small>EUR/MWh</small></div>'
-      f'<div class="quality-kpi"><span>P10–P90 peitto</span><b>{cov}</b><small>toteutuneista</small></div>'
-      f'<div class="quality-kpi"><span>Pisteytetty</span><b>{fq.get("scored_hours",0)}</b><small>tuntia</small></div>'
-      '</div>'
-    )
-    qrows=[]
-    for h,m in fq.get("by_horizon",{}).items():
-        if m.get("n",0):
-            hc="—" if m.get("p10_p90_coverage") is None else f"{m['p10_p90_coverage']*100:.0f}%"
-            qrows.append(f'<tr><td>D+{h}</td><td>{m["n"]}</td><td>{_fmt(m.get("mae_eur_mwh"))}</td><td>{_fmt(m.get("bias_eur_mwh"))}</td><td>{hc}</td></tr>')
-    quality_table='<div class="quality-table"><table><thead><tr><th>Horisontti</th><th>n</th><th>MAE</th><th>Bias</th><th>P10–P90</th></tr></thead><tbody>'+''.join(qrows)+'</tbody></table></div>'
-    readiness_html=f"""
-    <div class="readiness-grid">
-      <div class="readiness-card">
-        <div class="readiness-head"><span>Challenger-koulutusvalmius</span><b>{train_pct}%</b></div>
-        <div class="progress-track"><div class="progress-fill" style="width:{train_pct}%"></div></div>
-        <div class="readiness-meta">{scored_hours}/1000 tuntia · {scored_runs}/20 ajoa</div>
-      </div>
-      <div class="readiness-card">
-        <div class="readiness-head"><span>Walk-forward-valmius</span><b>{wf_pct}%</b></div>
-        <div class="progress-track"><div class="progress-fill" style="width:{wf_pct}%"></div></div>
-        <div class="readiness-meta">{scored_hours}/1500 tuntia · {scored_runs}/30 ajoa</div>
-      </div>
-    </div>"""
+def _risk_pill(risk_text):
+    cls=_risk_class(risk_text)
+    bg,fg,dot=_RISK_META[cls]
+    label=html.escape(risk_text or "—")
+    return (f'<span style="display:inline-flex;align-items:center;gap:5px;background:{bg};'
+            f'color:{fg};padding:5px 11px;border-radius:999px;font-size:13.5px;font-weight:700;">'
+            f'<span style="width:6px;height:6px;border-radius:50%;background:{dot};"></span>{label}</span>')
 
-    return f'''<!doctype html><html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#083b9a">
-<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/icon-192.png"><title>Sähköennuste</title>
-<style>
-:root{{--blue:#0e4fc4;--green:#168a4b;--red:#d83b32;--orange:#e98319;--purple:#7656c8;--bg:#f4f7fb;--card:#fff;--text:#12213d;--muted:#6e7b91;--line:#e4eaf2;--shadow:0 10px 30px rgba(29,58,105,.08)}}*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}}svg{{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}}
-.app-header{{background:linear-gradient(125deg,#062a70 0%,#0c49b8 60%,#1260d0 100%);color:#fff;padding:24px max(18px,calc((100vw - 1080px)/2 + 18px)) 58px}}.header-inner{{max-width:1080px;margin:auto;display:flex;justify-content:space-between;align-items:center}}.brand{{display:flex;align-items:center;gap:14px}}.logo{{width:54px;height:54px;border-radius:15px;background:linear-gradient(145deg,#22a3ff,#0d49d5);display:grid;place-items:center;box-shadow:0 8px 24px rgba(0,0,0,.18)}}.logo svg{{width:32px;height:32px;fill:#fff;stroke:none}}.brand h1{{margin:0;font-size:2rem;letter-spacing:-.03em}}.brand p{{margin:2px 0 0;opacity:.86}}.updated{{font-size:.86rem;opacity:.82;margin-top:5px}}.refresh{{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1);font-size:24px}}
-main{{max-width:1080px;margin:-34px auto 0;padding:0 18px 38px}}.source-strip{{background:#fff;border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:repeat(4,1fr);padding:10px 6px;margin-bottom:22px}}.source-item{{display:flex;gap:10px;align-items:center;padding:8px 16px;border-right:1px solid var(--line)}}.source-item:last-child{{border-right:0}}.source-icon{{width:34px;height:34px;border-radius:10px;background:#edf4ff;color:var(--blue);display:grid;place-items:center}}.source-item b{{display:block;font-size:.9rem}}.source-item small{{display:flex;gap:5px;align-items:center;color:var(--muted);font-size:.75rem}}.source-item i{{width:8px;height:8px;border-radius:50%;background:#aaa}}.source-item .fresh{{color:var(--green)}}.source-item .fresh i{{background:#27b35f}}.source-item .aging{{color:#b87412}}.source-item .aging i{{background:#f0a22c}}.source-item .stale{{color:var(--red)}}.source-item .stale i{{background:var(--red)}}
-.section-title{{display:flex;align-items:center;gap:8px;font-size:1.18rem;margin:24px 4px 12px}}.info{{width:18px;height:18px;border:1px solid #aeb9ca;border-radius:50%;font-size:.7rem;color:#7c899d;display:inline-grid;place-items:center}}.price-grid{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}.price-card{{background:#fff;border:1px solid #dfe7f3;border-radius:18px;box-shadow:var(--shadow);padding:18px 20px}}.price-card.blue{{background:linear-gradient(145deg,#fff 55%,#f4f8ff)}}.price-card.green{{background:linear-gradient(145deg,#fff 55%,#f3fbf6)}}.price-top>div{{display:flex;gap:10px;align-items:flex-start}}.dtag{{border-radius:8px;padding:5px 8px;font-weight:800;color:#fff;background:var(--blue)}}.green .dtag{{background:#20a454}}.dayname{{font-weight:700}}.dayname small{{display:block;color:var(--muted);font-size:.76rem;font-weight:500}}.hero-price{{font-size:3rem;font-weight:800;letter-spacing:-.05em;color:#0c46b5;text-align:center;margin:8px 0 6px}}.green .hero-price{{color:#148a49}}.hero-price span{{font-size:.8rem;font-weight:600;letter-spacing:0;color:var(--text)}}.hero-price.small{{font-size:1.5rem;text-align:left;letter-spacing:0;margin-top:28px}}.statrow{{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;color:#55647b;margin:8px 0 14px}}.statrow span+span{{border-left:1px solid var(--line)}}.statrow b{{color:#163b84}}.statrow .good{{color:var(--green)}}.statrow .bad{{color:var(--red)}}.window-grid{{border:1px solid #cfdcf4;background:rgba(244,248,255,.75);border-radius:13px;display:grid;grid-template-columns:1fr 1fr;padding:10px;text-align:center}}.window-grid div+div{{border-left:1px solid var(--line)}}.window-grid span{{display:block;color:#5f6d80;font-size:.75rem}}.window-grid b{{font-size:.9rem}}
-.card{{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:14px 16px}}.tablewrap{{overflow-x:auto}}table{{width:100%;border-collapse:collapse;min-width:760px}}th{{font-size:.72rem;color:#7a8799;text-transform:uppercase;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}}td{{padding:8px 10px;border-bottom:1px solid #edf1f6;font-size:.88rem}}td small{{display:block;color:var(--muted);font-size:.72rem}}td.p50{{font-size:1.12rem;font-weight:800;color:#0c49bd}}.change-cell{{font-weight:750}}.change-cell.rise{{color:var(--orange)}}.change-cell.fall{{color:var(--green)}}.risk{{display:inline-block;min-width:92px;text-align:center;border-radius:8px;padding:5px 9px;font-size:.72rem}}.risk.low{{background:#eaf7ef;color:#147b43}}.risk.med{{background:#fff4df;color:#c96c08}}.risk.high{{background:#fdeceb;color:#c82e28}}.mobile-forecast{{display:none}}
-.chart-head{{display:flex;justify-content:space-between}}.legend{{display:flex;gap:16px;color:#64738a;font-size:.75rem}}.legend i{{display:inline-block;width:22px;height:3px;background:#1157ca;vertical-align:middle;margin-right:5px}}.legend .band{{height:10px;background:#dce8fb}}.price-chart{{width:100%;height:auto}}.gridline{{stroke:#e7edf5;stroke-width:1}}.axis,.xlab,.xlab2,.value-label{{font-family:inherit;fill:#738198;font-size:10px}}.value-label{{fill:#0b3e99;font-weight:700}}.xlab2{{fill:#42536e;font-weight:700}}.uncertainty{{fill:#dce8fb;opacity:.85;stroke:none}}.p50line{{fill:none;stroke:#0b52c7;stroke-width:3}}.dot{{fill:#fff;stroke:#0b52c7;stroke-width:2.5}}
-.two-col{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}.subhead{{font-size:1.05rem;margin:0 0 10px}}.change-item{{display:flex;gap:11px;align-items:center;padding:10px;border:1px solid #edf1f6;border-radius:12px;margin-top:8px}}.change-icon{{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#e9f2ff;color:#1a5fcc;flex:0 0 auto}}.change-icon.green{{background:#e8f7ee;color:#15924c}}.change-icon.red{{background:#ffefed;color:#d84a3c}}.change-icon.amber{{background:#fff3df;color:#e38719}}.change-icon.purple{{background:#f0ebff;color:#7656c8}}.change-item b{{display:block;font-size:.86rem}}.change-item small{{display:block;color:var(--muted);font-size:.74rem}}
-.model-row{{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid #edf1f6}}.model-row:last-child{{border-bottom:0}}.model-ic{{color:#255cb2;width:24px;display:grid;place-items:center}}.model-row span{{font-size:.82rem;color:#526179}}.model-row b{{margin-left:auto;font-size:.84rem;color:#173a76}}.model-row b.ready{{color:var(--green)}}
-.factor-grid{{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}}.factor{{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 5px 16px rgba(34,58,92,.05)}}.factor-icon{{width:34px;height:34px;border-radius:10px;background:#f0f5fd;color:#2459a8;display:grid;place-items:center;flex:0 0 auto}}.factor small{{display:block;color:#6f7c90;font-size:.72rem}}.factor b{{display:block;font-size:.98rem}}.factor em{{font-style:normal;font-size:.7rem;color:#728096}}footer{{text-align:center;color:#7e8999;font-size:.72rem;padding:24px 0}}
-.quality-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}}
-.readiness-grid{{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}}
-.readiness-card{{background:#f8fbff;border:1px solid var(--line);border-radius:14px;padding:13px}}
-.readiness-head{{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:.78rem;color:var(--muted)}}
-.readiness-head b{{font-size:1rem;color:#123f93}}
-.progress-track{{height:10px;background:#e8eef8;border-radius:999px;overflow:hidden;margin:10px 0 7px}}
-.progress-fill{{height:100%;background:linear-gradient(90deg,#2c6bed,#6b9cff);border-radius:999px}}
-.readiness-meta{{font-size:.72rem;color:var(--muted)}}.tz-label{{opacity:.72;font-size:.72rem}}
-.quality-kpi{{background:#f7f9fc;border:1px solid var(--line);border-radius:14px;padding:12px}}.quality-kpi span{{display:block;color:var(--muted);font-size:.74rem}}.quality-kpi b{{display:block;font-size:1.35rem;color:#123f93}}.quality-kpi small{{color:var(--muted);font-size:.7rem}}.quality-table{{overflow-x:auto}}.quality-table table{{min-width:560px}}
-@media(max-width:760px){{.app-header{{padding:18px 14px 48px}}.brand h1{{font-size:1.55rem}}.logo{{width:46px;height:46px}}main{{padding:0 10px 28px}}.source-strip{{grid-template-columns:1fr 1fr;padding:5px}}.source-item{{border-right:0;border-bottom:1px solid var(--line);padding:8px 10px}}.source-item:nth-last-child(-n+2){{border-bottom:0}}.price-grid{{grid-template-columns:1fr}}.desktop-table{{display:none}}.mobile-forecast{{display:flex;gap:10px;overflow-x:auto;padding:2px 1px 8px;scroll-snap-type:x mandatory}}.forecast-day{{min-width:210px;scroll-snap-align:start;border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff;position:relative}}.forecast-day small{{color:var(--muted)}}.mobile-p50{{font-size:1.7rem;font-weight:800;color:#0c49bd;margin:10px 0}}.mobile-p50 small{{font-size:.65rem;margin-left:4px}}.mobile-range{{font-size:.7rem;color:var(--muted)}}.mobile-range b{{font-size:.83rem;color:var(--text)}}.mobile-change{{font-weight:750;font-size:.82rem;margin:8px 0}}.mobile-change.rise{{color:var(--orange)}}.mobile-change.fall{{color:var(--green)}}.mobile-change small{{display:block;font-size:.65rem}}.forecast-day .risk{{position:absolute;right:10px;top:10px;min-width:auto}}.two-col{{grid-template-columns:1fr}}.factor-grid{{grid-template-columns:1fr 1fr}}.quality-grid{{grid-template-columns:1fr 1fr}}.readiness-grid{{grid-template-columns:1fr}}.legend{{display:none}}.chart-scroll{{overflow-x:auto}}.price-chart{{min-width:720px}}.refresh{{display:none}}}}
+def _change_arrow(delta):
+    if delta is None: return "→","#8A8577"
+    if delta>0.0001: return "↑","#D98A3D"
+    if delta<-0.0001: return "↓","#0B6E63"
+    return "→","#8A8577"
 
-/* COLORFUL_UI_V1 */
-:root{{--blue:#2563eb;--cyan:#06b6d4;--green:#16a34a;--red:#e5484d;--orange:#f59e0b;--purple:#8b5cf6;--bg:#eef4fb;--card:#fff;--text:#12213d;--muted:#64748b;--line:#dce5f1;--shadow:0 12px 32px rgba(30,64,120,.10)}}
-body{{background:radial-gradient(circle at 8% 2%,rgba(34,211,238,.10),transparent 24rem),radial-gradient(circle at 92% 8%,rgba(139,92,246,.08),transparent 27rem),var(--bg)}}
-.app-header{{background:linear-gradient(120deg,#092f76 0%,#2563eb 42%,#0ea5e9 75%,#14b8a6 100%)}}
-.logo{{background:linear-gradient(145deg,#22d3ee 0%,#2563eb 55%,#7c3aed 100%);box-shadow:0 10px 28px rgba(10,54,130,.28)}}
-.refresh{{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.18)}}
-.source-strip,.card,.price-card,.factor,.quality-kpi,.readiness-card{{box-shadow:0 10px 28px rgba(30,64,120,.08)}}
-.section-title{{position:relative;padding-left:13px}}
-.section-title::before{{content:"";position:absolute;left:0;width:5px;height:22px;border-radius:999px;background:linear-gradient(180deg,#2563eb,#06b6d4)}}
-.price-card{{position:relative;overflow:hidden;border-width:1px}}
-.price-card::before{{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:#cbd5e1}}
-.price-card.price-tone-very-cheap{{background:linear-gradient(145deg,#fff 48%,#ecfdf5)}} .price-card.price-tone-very-cheap::before{{background:#16a34a}}
-.price-card.price-tone-cheap{{background:linear-gradient(145deg,#fff 48%,#ecfeff)}} .price-card.price-tone-cheap::before{{background:#06b6d4}}
-.price-card.price-tone-normal{{background:linear-gradient(145deg,#fff 48%,#eff6ff)}} .price-card.price-tone-normal::before{{background:#2563eb}}
-.price-card.price-tone-expensive{{background:linear-gradient(145deg,#fff 48%,#fff7ed)}} .price-card.price-tone-expensive::before{{background:#f59e0b}}
-.price-card.price-tone-very-expensive{{background:linear-gradient(145deg,#fff 48%,#fff1f2)}} .price-card.price-tone-very-expensive::before{{background:#e5484d}}
-.price-card.price-tone-very-cheap .hero-price{{color:#15803d}}
-.price-card.price-tone-cheap .hero-price{{color:#0891b2}}
-.price-card.price-tone-normal .hero-price{{color:#1d4ed8}}
-.price-card.price-tone-expensive .hero-price{{color:#d97706}}
-.price-card.price-tone-very-expensive .hero-price{{color:#dc2626}}
-.window-grid{{background:linear-gradient(135deg,rgba(239,246,255,.88),rgba(236,254,255,.72));border-color:#c7d8ef}}
-table tbody tr{{transition:background .15s ease}} table tbody tr:hover{{background:#f8fbff}}
-tr.price-tone-very-cheap td:first-child{{box-shadow:inset 4px 0 #16a34a}} tr.price-tone-very-cheap td.p50{{color:#15803d}}
-tr.price-tone-cheap td:first-child{{box-shadow:inset 4px 0 #06b6d4}} tr.price-tone-cheap td.p50{{color:#0891b2}}
-tr.price-tone-normal td:first-child{{box-shadow:inset 4px 0 #2563eb}} tr.price-tone-normal td.p50{{color:#1d4ed8}}
-tr.price-tone-expensive td:first-child{{box-shadow:inset 4px 0 #f59e0b}} tr.price-tone-expensive td.p50{{color:#d97706}}
-tr.price-tone-very-expensive td:first-child{{box-shadow:inset 4px 0 #e5484d}} tr.price-tone-very-expensive td.p50{{color:#dc2626}}
-.change-cell.rise{{color:#e76f00}} .change-cell.fall{{color:#15803d}}
-.risk.low{{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}}
-.risk.med{{background:#ffedd5;color:#9a4d00;border:1px solid #fed7aa}}
-.risk.high{{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca}}
-.source-item:nth-child(1) .source-icon{{background:#eef2ff;color:#4f46e5}}
-.source-item:nth-child(2) .source-icon{{background:#ecfeff;color:#0891b2}}
-.source-item:nth-child(3) .source-icon{{background:#fef9c3;color:#a16207}}
-.source-item:nth-child(4) .source-icon{{background:#ecfdf5;color:#15803d}}
-.factor:nth-child(1) .factor-icon{{background:#f3e8ff;color:#7e22ce}} .factor:nth-child(1){{border-top:3px solid #a855f7}}
-.factor:nth-child(2) .factor-icon{{background:#cffafe;color:#0e7490}} .factor:nth-child(2){{border-top:3px solid #06b6d4}}
-.factor:nth-child(3) .factor-icon{{background:#fef9c3;color:#a16207}} .factor:nth-child(3){{border-top:3px solid #eab308}}
-.factor:nth-child(4) .factor-icon{{background:#dbeafe;color:#1d4ed8}} .factor:nth-child(4){{border-top:3px solid #3b82f6}}
-.factor:nth-child(5) .factor-icon{{background:#ffedd5;color:#c2410c}} .factor:nth-child(5){{border-top:3px solid #f97316}}
-.quality-kpi:nth-child(1){{border-top:3px solid #2563eb}}
-.quality-kpi:nth-child(2){{border-top:3px solid #8b5cf6}}
-.quality-kpi:nth-child(3){{border-top:3px solid #06b6d4}}
-.quality-kpi:nth-child(4){{border-top:3px solid #16a34a}}
-.progress-fill{{background:linear-gradient(90deg,#2563eb,#06b6d4,#14b8a6)}}
-.uncertainty{{fill:#c7d2fe;opacity:.72}} .p50line{{stroke:#2563eb}} .dot{{stroke:#2563eb}}
-.mobile-forecast .forecast-day{{position:relative;overflow:hidden}}
-.mobile-forecast .forecast-day::before{{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#cbd5e1}}
-.mobile-forecast .forecast-day.price-tone-very-cheap::before{{background:#16a34a}}
-.mobile-forecast .forecast-day.price-tone-cheap::before{{background:#06b6d4}}
-.mobile-forecast .forecast-day.price-tone-normal::before{{background:#2563eb}}
-.mobile-forecast .forecast-day.price-tone-expensive::before{{background:#f59e0b}}
-.mobile-forecast .forecast-day.price-tone-very-expensive::before{{background:#e5484d}}
-.mobile-forecast .forecast-day.price-tone-very-cheap .mobile-p50{{color:#15803d}}
-.mobile-forecast .forecast-day.price-tone-cheap .mobile-p50{{color:#0891b2}}
-.mobile-forecast .forecast-day.price-tone-normal .mobile-p50{{color:#1d4ed8}}
-.mobile-forecast .forecast-day.price-tone-expensive .mobile-p50{{color:#d97706}}
-.mobile-forecast .forecast-day.price-tone-very-expensive .mobile-p50{{color:#dc2626}}
+def _factor_value(dg,key,unit):
+    """Mirrors the unit-scaling rule used across the app: MW values >=1000 show as GW."""
+    x=dg.get(key,{}) or {}
+    val=x.get("value")
+    if val is None:
+        return None,"—",""
+    if unit=="MW" and abs(val)>=1000:
+        return val,_fmt_fi(val/1000,1),"GW"
+    return val,_fmt_fi(val,1),unit
 
-</style></head><body>
-<header class="app-header"><div class="header-inner"><div class="brand"><span class="logo">{_icon_svg("bolt")}</span><div><h1>Sähköennuste</h1><p>Suomen pörssisähkö</p><div class="updated">◷ Päivitetty <span id="updated-local" data-utc="{html.escape(str(p["forecast_issue_time"]))}">{_format_helsinki_time(p["forecast_issue_time"])}</span> <span class="tz-label">Suomen aika</span></div></div></div><div class="refresh">↻</div></div></header>
-<main><section class="source-strip">{"".join(fresh)}</section>
-<h2 class="section-title">Julkaistut day-ahead-hinnat <span class="info">i</span></h2><section class="price-grid">{"".join(pub)}</section>
-<h2 class="section-title">{forecast_heading} <span class="info">i</span></h2><section class="card desktop-table"><div class="tablewrap"><table><thead><tr><th>Päivä</th><th>P50 (snt/kWh)</th><th>P10–P90</th><th>Vs. edellinen</th><th>Riski</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div></section><section class="mobile-forecast">{"".join(mobile)}</section>
-<h2 class="section-title">12 päivän hintakehitys <span class="info">i</span></h2><section class="card"><div class="chart-head"><div class="legend"><span><i></i>P50</span><span><i class="band"></i>P10–P90</span></div></div><div class="chart-scroll">{_chart_svg(p)}</div></section>
-<section class="two-col" style="margin-top:16px"><div class="card"><h3 class="subhead">Mitä muuttui <span class="info">i</span></h3>{"".join(changes)}</div><div class="card"><h3 class="subhead">Mallin tila <span class="info">i</span></h3><div class="model-row"><span class="model-ic">{_icon_svg("trophy")}</span><span>Champion</span><b>{html.escape(str(champ["name"]))} {html.escape(str(champ["version"]))}</b></div><div class="model-row"><span class="model-ic">{_icon_svg("brain")}</span><span>Koulutettu ML</span><b>{'Kyllä' if champ.get("trained_ml") else 'Ei vielä'}</b></div><div class="model-row"><span class="model-ic">{_icon_svg("db")}</span><span>Pisteytettyjä tunteja</span><b>{ev["scored_hours"]}</b></div><div class="model-row"><span class="model-ic">{_icon_svg("check")}</span><span>Challenger-koulutus</span><b class="{'ready' if ready else ''}">{'Valmis' if ready else 'Ei vielä'}</b></div></div></section>
-<h2 class="section-title">Ennusteen laatu <span class="info">i</span></h2><section class="card">{quality_html}{quality_table}{readiness_html}</section>
-<h2 class="section-title">Ennusteen taustatekijät <span class="info">i</span></h2><section class="factor-grid">{"".join(factors)}</section>
-<footer>Forecast run: {html.escape(p["forecast_run_id"])} · Electricity Forecaster v1.4.1 ML Readiness</footer></main>
-<script>
-(function(){{
-  function parseUtc(raw){{
+def _narrative_paragraphs(p):
+    """Two short, plain-language paragraphs for the consumer page: what changed, and why —
+    built from the same change/uncertainty data as the 'Mitä muuttui' diagnostics, so the two
+    pages never disagree with each other."""
+    items=_change_summary(p)
+    sentences=[]
+    for _icon,_tone,title,desc in items:
+        title=title.rstrip(".")
+        sentences.append(f"{title}: {desc}" if desc else f"{title}.")
+    para1=" ".join(sentences)
+
+    days=p.get("days",[])
+    dg=days[0].get("diagnostics",{}) if days else {}
+    _,cons,cons_u=_factor_value(dg,"consumption_forecast","MW")
+    _,wind,wind_u=_factor_value(dg,"wind_forecast","MW")
+    _,solar,solar_u=_factor_value(dg,"solar_forecast","MW")
+    _,temp,temp_u=_factor_value(dg,"temperature","°C")
+    lead_bits=[]
+    if cons!="—": lead_bits.append(f"sähkönkulutus pysyy korkeana ({cons} {cons_u})")
+    if wind!="—": lead_bits.append(f"tuulivoiman tuotanto on {wind} {wind_u}")
+    para2=""
+    if lead_bits:
+        para2="Taustalla vaikuttaa erityisesti "+" ja ".join(lead_bits)+"."
+        tail_bits=[]
+        if solar!="—": tail_bits.append(f"aurinkovoimaa on tarjolla {solar} {solar_u}")
+        if temp!="—": tail_bits.append(f"ilman lämpötila on {temp} {temp_u}")
+        if tail_bits:
+            extra=" ja ".join(tail_bits)
+            para2+=" "+extra[0:1].upper()+extra[1:]+"."
+    return para1,para2
+
+_SHARED_STYLE = """
+  body{margin:0;background:#F7F4EC;}
+  a{color:#0B4F49;text-decoration:none;}
+  a:hover{color:#0B6E63;}
+  .stat-col+.stat-col{border-left:1px solid rgba(28,27,23,0.08);}
+  table{border-collapse:collapse;}
+  .gridline{stroke:#E7E3D9;stroke-width:1;}
+  .axis,.xlab{font-family:'IBM Plex Mono',monospace;font-size:12px;fill:#8A8577;}
+  .xlab2{font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;fill:#3A382F;}
+  .value-label{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;fill:#1C1B17;}
+  .uncertainty{fill:#DCEDEA;opacity:.9;stroke:none;}
+  .p50line{fill:none;stroke:#0B4F49;stroke-width:2.5;}
+  .dot{fill:#F7F4EC;stroke:#0B4F49;stroke-width:2.5;}
+  .empty-chart{padding:24px;text-align:center;color:#8A8577;font-size:14px;}
+"""
+
+_FONT_LINK = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">'
+
+def _page_head(title):
+    return (f'<!doctype html><html lang="fi"><head><meta charset="utf-8">'
+            f'<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0B4F49">'
+            f'<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png">'
+            f'<link rel="apple-touch-icon" href="icons/icon-192.png">{_FONT_LINK}<title>{title}</title>')
+
+def _sw_script():
+    return ('''<script>
+(function(){
+  function parseUtc(raw){
     if(!raw) return null;
     raw=String(raw).trim();
     if(raw.endsWith("Z")) return new Date(raw);
-    if(/[+-]\\d{{2}}:\\d{{2}}$/.test(raw)) return new Date(raw);
-    // GitHub/SQLite issue_time without offset is UTC by convention in this app.
+    if(/[+-]\\d{2}:\\d{2}$/.test(raw)) return new Date(raw);
     return new Date(raw + "Z");
-  }}
-  function renderHelsinki(){{
+  }
+  function renderHelsinki(){
     const el=document.getElementById("updated-local");
     if(!el) return;
     const d=parseUtc(el.dataset.utc || "");
     if(!d || isNaN(d.getTime())) return;
-    const formatted=new Intl.DateTimeFormat("fi-FI",{{
+    const formatted=new Intl.DateTimeFormat("fi-FI",{
       timeZone:"Europe/Helsinki",
       day:"2-digit",month:"2-digit",year:"numeric",
-      hour:"2-digit",minute:"2-digit",second:"2-digit",
+      hour:"2-digit",minute:"2-digit",
       hour12:false
-    }}).format(d);
+    }).format(d);
     el.textContent=formatted;
     el.title="Europe/Helsinki";
-  }}
+  }
   renderHelsinki();
-  if("serviceWorker" in navigator){{
-    window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{{}}));
+  if("serviceWorker" in navigator){
+    window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+  }
+})();
+</script>''')
+
+def _render_html(p):
+    """Consumer page ('Kuluttaja'): today/tomorrow price, the 12-day outlook, a short
+    plain-language recap of what changed and why, and a link through to Diagnostiikka."""
+    accent="#0B4F49"
+    pub_cards=[]
+    for x in p.get("published_day_ahead",[]):
+        d_plus=x.get("d_plus",0)
+        dlabel="Tänään" if d_plus==0 else ("Huomenna" if d_plus==1 else f"D+{d_plus}")
+        if x.get("published"):
+            pill=_tone_pill(_price_tone(x.get("mean_snt_kwh_vat")))
+            pub_cards.append(f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:18px;padding:26px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:10px;">
+          <div>
+            <div style="font-size:15px;font-weight:700;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;">{html.escape(dlabel)}</div>
+            <div style="font-size:14px;color:#8A8577;margin-top:2px;">{_weekday_fi(x["date"])} · julkaistu</div>
+          </div>
+          {pill}
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:58px;line-height:1;color:#1C1B17;text-align:center;margin:14px 0 8px;">{_fmt_fi(x.get("mean_snt_kwh_vat"),2)}<span style="font-size:17px;font-weight:500;color:#8A8577;margin-left:6px;">snt/kWh</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);text-align:center;margin:22px 0 18px;padding:14px 0;border-top:1px solid rgba(28,27,23,0.08);border-bottom:1px solid rgba(28,27,23,0.08);">
+          <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Min</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("min_snt_kwh_vat"),2)}</div></div>
+          <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Keski</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("mean_snt_kwh_vat"),2)}</div></div>
+          <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Max</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("max_snt_kwh_vat"),2)}</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="background:#F7F4EC;border-radius:12px;padding:12px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#8A8577;margin-bottom:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#0B6E63;"></span>Halvin 3 h</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:16px;">{html.escape(x.get("cheapest_3h") or "—")}</div>
+          </div>
+          <div style="background:#F7F4EC;border-radius:12px;padding:12px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#8A8577;margin-bottom:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#B03A2E;"></span>Kallein 3 h</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:16px;">{html.escape(x.get("expensive_3h") or "—")}</div>
+          </div>
+        </div>
+      </div>''')
+        else:
+            pub_cards.append(f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:18px;padding:26px;">
+        <div style="font-size:15px;font-weight:700;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;">{html.escape(dlabel)}</div>
+        <div style="font-size:14px;color:#8A8577;margin-top:2px;margin-bottom:18px;">{_weekday_fi(x["date"])}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:22px;color:#8A8577;">Ei vielä julkaistu</div>
+        <div style="font-size:14px;color:#8A8577;margin-top:8px;">FI day-ahead -hintaa ei ole vielä tietokannassa.</div>
+      </div>''')
+
+    days=p.get("days",[])
+    p10s=[d["p10_snt_kwh_vat"] for d in days if d.get("p10_snt_kwh_vat") is not None]
+    p90s=[d["p90_snt_kwh_vat"] for d in days if d.get("p90_snt_kwh_vat") is not None]
+    gmin=min(p10s) if p10s else 0.0
+    gmax=max(p90s) if p90s else 1.0
+    gspan=(gmax-gmin) or 1.0
+    BAR_W=160.0
+    def _pos(v):
+        if v is None: return 0.0
+        return max(0.0,min(BAR_W,(float(v)-gmin)/gspan*BAR_W))
+
+    rows=[]; mobile=[]
+    for d in days:
+        p10=d.get("p10_snt_kwh_vat"); p50=d.get("p50_snt_kwh_vat"); p90=d.get("p90_snt_kwh_vat")
+        left=_pos(p10); right=_pos(p90); width=max(2.0,right-left); marker=_pos(p50)
+        ch=d.get("change_from_previous"); delta=float(ch["delta"]) if ch and ch.get("delta") is not None else None
+        arrow,arrow_color=_change_arrow(delta)
+        change=_fmt_fi_signed(delta,2)
+        risk_pill=_risk_pill(d.get("risk"))
+        rows.append(f'''<tr><td style="padding:11px 10px;border-bottom:1px solid rgba(28,27,23,0.06);"><b>D+{d["d_plus"]}</b><br><span style="color:#8A8577;font-size:13.5px;">{_weekday_fi(d["date"])}</span></td>
+      <td style="padding:11px 10px;border-bottom:1px solid rgba(28,27,23,0.06);"><div style="position:relative;width:{BAR_W:.0f}px;height:16px;"><div style="position:absolute;left:1px;top:6px;width:{BAR_W-2:.0f}px;height:4px;background:rgba(28,27,23,0.07);border-radius:2px;"></div><div style="position:absolute;left:{left:.1f}px;top:6px;width:{width:.1f}px;height:4px;background:rgba(11,79,73,0.35);border-radius:2px;"></div><div style="position:absolute;left:{marker:.1f}px;top:2px;width:3px;height:12px;background:#0B4F49;border-radius:2px;"></div></div><span style="font-family:'IBM Plex Mono',monospace;font-weight:600;">{_fmt_fi(p50,2)}</span></td>
+      <td style="padding:11px 10px;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="color:{arrow_color};font-weight:700;">{arrow}</span> <span style="font-family:'IBM Plex Mono',monospace;">{change}</span></td>
+      <td style="padding:11px 10px;border-bottom:1px solid rgba(28,27,23,0.06);">{risk_pill}</td></tr>''')
+        mobile.append(f'''<div style="min-width:180px;background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:14px;padding:14px;flex:0 0 auto;"><b style="font-size:16px;">D+{d["d_plus"]}</b><br><span style="color:#8A8577;font-size:14px;">{_weekday_fi(d["date"])}</span><div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:28px;margin:8px 0;">{_fmt_fi(p50,2)}</div>{risk_pill}</div>''')
+
+    para1,para2=_narrative_paragraphs(p)
+    narrative_html=f'<p style="font-size:17px;line-height:1.65;color:#3A382F;margin:0 0 10px;">{html.escape(para1)}</p>'
+    if para2:
+        narrative_html+=f'<p style="font-size:17px;line-height:1.65;color:#3A382F;margin:0;">{html.escape(para2)}</p>'
+
+    forecast_days=p.get("days",[])
+    if forecast_days:
+        hmin=min(int(d["d_plus"]) for d in forecast_days); hmax=max(int(d["d_plus"]) for d in forecast_days)
+        forecast_heading=f"D+{hmin} – D+{hmax} ennuste"
+    else:
+        forecast_heading="Ennuste"
+
+    return f'''{_page_head("Sähköennuste")}
+<style>{_SHARED_STYLE}
+  .desktop-table{{display:block;}}
+  .mobile-forecast{{display:none;}}
+  @media (max-width:760px){{
+    .price-grid{{grid-template-columns:1fr !important;}}
+    .desktop-table{{display:none !important;}}
+    .mobile-forecast{{display:flex !important;}}
+    .chart-scroll{{overflow-x:auto;}}
+    .price-chart{{min-width:720px;}}
   }}
-}})();
-</script></body></html>'''
+</style></head><body>
+<div style="width:100%;min-height:100vh;box-sizing:border-box;font-family:'IBM Plex Sans',sans-serif;color:#1C1B17;">
+  <div style="width:100%;background:{accent};color:#F7F4EC;box-sizing:border-box;padding:18px 40px;display:flex;align-items:center;justify-content:space-between;gap:24px;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <span style="width:40px;height:40px;border-radius:10px;background:rgba(247,244,236,0.14);display:flex;align-items:center;justify-content:center;flex:0 0 auto;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F7F4EC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 2 5 13h6l-.8 9L19 10h-6.2L13.2 2Z"></path></svg>
+      </span>
+      <div>
+        <div style="font-family:'Fraunces',serif;font-weight:700;font-size:23px;letter-spacing:-0.01em;line-height:1.1;">Sähköennuste</div>
+        <div style="font-size:14px;opacity:0.75;margin-top:2px;">Suomen pörssisähkö</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:20px;">
+      <div style="text-align:right;font-size:13px;opacity:0.75;line-height:1.4;">
+        <div>Päivitetty</div>
+        <div id="updated-local" data-utc="{html.escape(str(p["forecast_issue_time"]))}" style="font-family:'IBM Plex Mono',monospace;">{_format_helsinki_time(p["forecast_issue_time"])}</div>
+      </div>
+      <div style="display:flex;gap:3px;background:rgba(247,244,236,0.14);padding:4px;border-radius:999px;">
+        <span style="padding:9px 17px;border-radius:999px;font-size:15px;font-weight:700;background:#F7F4EC;color:{accent};">Kuluttaja</span>
+        <a href="diagnostics.html" style="padding:9px 17px;border-radius:999px;font-size:15px;font-weight:600;color:rgba(247,244,236,0.82);">Diagnostiikka</a>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1040px;margin:0 auto;padding:36px 24px 72px;">
+
+    <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Julkaistut day-ahead-hinnat</div>
+    <h1 style="font-family:'Fraunces',serif;font-weight:600;font-size:27px;margin:0 0 18px;color:#1C1B17;">Sähkön hinta juuri nyt</h1>
+    <div class="price-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:36px;">{"".join(pub_cards)}</div>
+
+    <div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:18px;padding:26px 28px;margin-bottom:36px;">
+      <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:21px;margin:0 0 12px;">Mitä muuttui ja miksi</h2>
+      {narrative_html}
+      <a href="diagnostics.html" style="display:inline-flex;align-items:center;gap:6px;margin-top:16px;font-size:15.5px;font-weight:600;">
+        Näytä mallin tarkkuus ja tausta-analytiikka
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+      </a>
+    </div>
+
+    <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">{html.escape(forecast_heading)}</div>
+    <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0 0 14px;">Seuraavat päivät</h2>
+    <div class="desktop-table" style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:18px;padding:8px 16px;margin-bottom:36px;overflow-x:auto;">
+      <table style="width:100%;min-width:680px;"><thead><tr>
+        <th style="text-align:left;font-size:13px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:12px 10px;border-bottom:1px solid rgba(28,27,23,0.08);">Päivä</th>
+        <th style="text-align:left;font-size:13px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:12px 10px;border-bottom:1px solid rgba(28,27,23,0.08);">Hinta-arvio (snt/kWh)</th>
+        <th style="text-align:left;font-size:13px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:12px 10px;border-bottom:1px solid rgba(28,27,23,0.08);">Muutos</th>
+        <th style="text-align:left;font-size:13px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:12px 10px;border-bottom:1px solid rgba(28,27,23,0.08);">Vaihtelu</th>
+      </tr></thead><tbody style="font-size:15.5px;">{"".join(rows)}</tbody></table>
+    </div>
+    <div class="mobile-forecast" style="gap:10px;overflow-x:auto;margin-bottom:36px;padding-bottom:6px;">{"".join(mobile)}</div>
+
+    <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Hintakehitys</div>
+    <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0 0 14px;">Hinta-arvion kehitys</h2>
+    <div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:18px;padding:20px 16px;margin-bottom:8px;">
+      <div style="display:flex;gap:18px;font-size:14.5px;color:#6B6558;margin-bottom:8px;">
+        <span style="display:flex;align-items:center;gap:6px;"><span style="width:20px;height:2.5px;background:#0B4F49;display:inline-block;"></span>P50 (mediaani)</span>
+        <span style="display:flex;align-items:center;gap:6px;"><span style="width:20px;height:9px;background:#DCEDEA;display:inline-block;"></span>P10–P90 (epävarmuus)</span>
+      </div>
+      <div class="chart-scroll">{_chart_svg(p)}</div>
+    </div>
+
+    <div style="text-align:center;color:#8A8577;font-size:13.5px;padding:22px 0 4px;">
+      Forecast run: {html.escape(p["forecast_run_id"])} · Electricity Forecaster v1.4.1 ·
+      <a href="diagnostics.html" style="font-weight:600;">Diagnostiikka →</a>
+    </div>
+  </div>
+</div>
+{_sw_script()}
+</body></html>'''
+
+def _render_diagnostics_html(p):
+    """Diagnostics page ('Diagnostiikka'): model quality, Champion/Challenger status,
+    readiness gates, raw background factors and upstream data freshness — kept separate
+    from the consumer page so day-to-day users aren't shown ML-readiness internals."""
+    accent="#0B4F49"
+    ms=p.get("model_status",{}) or {}
+    ev=ms.get("evaluation",{}) or {}
+    champ=ms.get("champion",{}) or {}
+    ready=ms.get("challenger_training_ready")
+    fq=p.get("forecast_quality",{}) or {}
+    qo=fq.get("overall",{}) or {}
+    scored_hours=int(fq.get("scored_hours",0) or 0)
+    scored_runs=int(fq.get("scored_forecast_runs",0) or 0)
+    train_hours_pct=min(100,round(scored_hours/1000*100)) if scored_hours>=0 else 0
+    train_runs_pct=min(100,round(scored_runs/20*100)) if scored_runs>=0 else 0
+    train_pct=min(train_hours_pct,train_runs_pct)
+    wf_hours_pct=min(100,round(scored_hours/1500*100)) if scored_hours>=0 else 0
+    wf_runs_pct=min(100,round(scored_runs/30*100)) if scored_runs>=0 else 0
+    wf_pct=min(wf_hours_pct,wf_runs_pct)
+    cov="—" if qo.get("p10_p90_coverage") is None else f"{qo['p10_p90_coverage']*100:.0f} %"
+
+    quality_kpis=f'''<div class="quality-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:36px;">
+      <div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-top:3px solid {accent};border-radius:14px;padding:16px;">
+        <div style="font-size:14px;color:#8A8577;margin-bottom:6px;">MAE</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:28px;">{_fmt_fi(qo.get("mae_eur_mwh"),2)}</div><div style="font-size:13px;color:#8A8577;margin-top:2px;">EUR/MWh</div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-top:3px solid {accent};border-radius:14px;padding:16px;">
+        <div style="font-size:14px;color:#8A8577;margin-bottom:6px;">Bias</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:28px;">{_fmt_fi(qo.get("bias_eur_mwh"),2)}</div><div style="font-size:13px;color:#8A8577;margin-top:2px;">EUR/MWh</div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-top:3px solid {accent};border-radius:14px;padding:16px;">
+        <div style="font-size:14px;color:#8A8577;margin-bottom:6px;">P10–P90 peitto</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:28px;">{cov}</div><div style="font-size:13px;color:#8A8577;margin-top:2px;">toteutuneista</div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-top:3px solid {accent};border-radius:14px;padding:16px;">
+        <div style="font-size:14px;color:#8A8577;margin-bottom:6px;">Pisteytetty</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:28px;">{_fmt_int_fi(scored_hours)}</div><div style="font-size:13px;color:#8A8577;margin-top:2px;">tuntia</div>
+      </div>
+    </div>'''
+
+    qrows=[]
+    for h,m in fq.get("by_horizon",{}).items():
+        if m.get("n",0):
+            hc="—" if m.get("p10_p90_coverage") is None else f"{m['p10_p90_coverage']*100:.0f} %"
+            qrows.append(f'<tr><td style="padding:11px 10px;border-bottom:1px solid rgba(28,27,23,0.06);font-family:\'IBM Plex Sans\',sans-serif;font-weight:700;">D+{h}</td><td style="padding:11px 10px;border-bottom:1px solid rgba(28,27,23,0.06);">{_fmt_int_fi(m["n"])}</td><td style="padding:11px 10px;border-bottom:1px solid rgba(28,27,23,0.06);">{_fmt_fi(m.get("mae_eur_mwh"),2)}</td><td style="padding:11px 10px;border-bottom:1px solid rgba(28,27,23,0.06);">{_fmt_fi(m.get("bias_eur_mwh"),2)}</td><td style="padding:11px 10px;border-bottom:1px solid rgba(28,27,23,0.06);">{hc}</td></tr>')
+    quality_table=f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:18px;padding:8px 16px;margin-bottom:36px;overflow-x:auto;">
+      <table style="width:100%;min-width:560px;"><thead><tr>
+        <th style="text-align:left;font-size:13px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:12px 10px;border-bottom:1px solid rgba(28,27,23,0.08);">Horisontti</th>
+        <th style="text-align:left;font-size:13px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:12px 10px;border-bottom:1px solid rgba(28,27,23,0.08);">n</th>
+        <th style="text-align:left;font-size:13px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:12px 10px;border-bottom:1px solid rgba(28,27,23,0.08);">MAE</th>
+        <th style="text-align:left;font-size:13px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:12px 10px;border-bottom:1px solid rgba(28,27,23,0.08);">Bias</th>
+        <th style="text-align:left;font-size:13px;color:#8A8577;text-transform:uppercase;letter-spacing:0.03em;padding:12px 10px;border-bottom:1px solid rgba(28,27,23,0.08);">P10–P90</th>
+      </tr></thead><tbody style="font-family:'IBM Plex Mono',monospace;font-size:15.5px;">{"".join(qrows)}</tbody></table>
+    </div>'''
+
+    readiness_html=f'''<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:36px;" class="readiness-grid">
+      <div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:16px;padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:15px;color:#6B6558;margin-bottom:10px;"><span>Challenger-koulutusvalmius</span><b style="font-family:'IBM Plex Mono',monospace;color:#1C1B17;font-size:18px;">{train_pct} %</b></div>
+        <div style="height:9px;background:rgba(28,27,23,0.07);border-radius:999px;overflow:hidden;"><div style="height:100%;width:{train_pct}%;background:{accent};border-radius:999px;"></div></div>
+        <div style="font-size:13.5px;color:#8A8577;margin-top:8px;">{_fmt_int_fi(scored_hours)}/1 000 tuntia · {scored_runs}/20 ajoa</div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:16px;padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:15px;color:#6B6558;margin-bottom:10px;"><span>Walk-forward-valmius</span><b style="font-family:'IBM Plex Mono',monospace;color:#1C1B17;font-size:18px;">{wf_pct} %</b></div>
+        <div style="height:9px;background:rgba(28,27,23,0.07);border-radius:999px;overflow:hidden;"><div style="height:100%;width:{wf_pct}%;background:{accent};border-radius:999px;"></div></div>
+        <div style="font-size:13.5px;color:#8A8577;margin-top:8px;">{_fmt_int_fi(scored_hours)}/1 500 tuntia · {scored_runs}/30 ajoa</div>
+      </div>
+    </div>'''
+
+    ready_pill=(f'<span style="display:inline-flex;align-items:center;gap:6px;background:#E4F2EF;color:#0B4F49;padding:5px 11px;border-radius:999px;font-size:14px;font-weight:700;">'
+                f'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0B4F49" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4 10-10"></path></svg>Valmis</span>'
+                if ready else
+                '<span style="display:inline-flex;align-items:center;gap:6px;background:#F1EFE9;color:#6B6558;padding:5px 11px;border-radius:999px;font-size:14px;font-weight:700;">Ei vielä</span>')
+    model_html=f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:16px;padding:6px 22px;margin-bottom:36px;">
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="font-size:15.5px;color:#3A382F;flex:1;">Champion</span><b style="font-family:'IBM Plex Mono',monospace;font-size:15.5px;">{html.escape(str(champ.get("name","—")))} {html.escape(str(champ.get("version","")))}</b></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="font-size:15.5px;color:#3A382F;flex:1;">Koulutettu ML-malli</span><span style="display:inline-flex;align-items:center;gap:6px;background:#F1EFE9;color:#6B6558;padding:5px 11px;border-radius:999px;font-size:14px;font-weight:700;">{"Kyllä" if champ.get("trained_ml") else "Ei vielä"}</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="font-size:15.5px;color:#3A382F;flex:1;">Pisteytettyjä tunteja</span><b style="font-family:'IBM Plex Mono',monospace;font-size:15.5px;">{_fmt_int_fi(ev.get("scored_hours",0))}</b></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 0;"><span style="font-size:15.5px;color:#3A382F;flex:1;">Challenger-koulutus</span>{ready_pill}</div>
+    </div>'''
+
+    dg=p["days"][0].get("diagnostics",{}) if p.get("days") else {}
+    factor_specs=[("Kulutus","consumption_forecast","MW"),("Tuuli","wind_forecast","MW"),("Aurinko","solar_forecast","MW"),("Residual load","residual_load","MW"),("Lämpötila","temperature","°C")]
+    factors=[]
+    for title,key,unit in factor_specs:
+        _,v,u=_factor_value(dg,key,unit)
+        factors.append(f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:14px;padding:14px;">
+        <div style="font-size:13.5px;color:#8A8577;margin-bottom:6px;">{html.escape(title)}</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:19px;">{v} <span style="font-size:13px;font-weight:500;color:#8A8577;">{html.escape(u)}</span></div>
+      </div>''')
+    factor_html=f'<div class="factor-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:36px;">{"".join(factors)}</div>'
+
+    labels={"fresh":"Tuore","aging":"Ikääntyvä","stale":"Vanhentunut","unknown":"Ei tietoa"}
+    source_colors={"fresh":"#0B6E63","aging":"#D98A3D","stale":"#B03A2E","unknown":"#8A8577"}
+    source_text={"fresh":"#0B4F49","aging":"#8A4B12","stale":"#8C2E22","unknown":"#6B6558"}
+    sources=[]
+    for x in p.get("freshness",{}).get("sources",[]):
+        st=x.get("state","unknown")
+        sources.append(f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:14px;padding:14px;">
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px;">{html.escape(x.get("source",""))}</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:{source_text.get(st,"#6B6558")};"><span style="width:6px;height:6px;border-radius:50%;background:{source_colors.get(st,"#8A8577")};"></span>{labels.get(st,"Ei tietoa")}</div>
+      </div>''')
+    source_html=f'<div class="source-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;">{"".join(sources)}</div>'
+
+    return f'''{_page_head("Sähköennuste — Diagnostiikka")}
+<style>{_SHARED_STYLE}
+  @media (max-width:760px){{
+    .factor-grid{{grid-template-columns:1fr 1fr !important;}}
+    .quality-grid{{grid-template-columns:1fr 1fr !important;}}
+    .readiness-grid{{grid-template-columns:1fr !important;}}
+    .source-grid{{grid-template-columns:1fr 1fr !important;}}
+  }}
+</style></head><body>
+<div style="width:100%;min-height:100vh;box-sizing:border-box;font-family:'IBM Plex Sans',sans-serif;color:#1C1B17;">
+  <div style="width:100%;background:#1C1B17;color:#F7F4EC;box-sizing:border-box;padding:18px 40px;display:flex;align-items:center;justify-content:space-between;gap:24px;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <span style="width:40px;height:40px;border-radius:10px;background:rgba(247,244,236,0.10);display:flex;align-items:center;justify-content:center;flex:0 0 auto;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F7F4EC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 2 5 13h6l-.8 9L19 10h-6.2L13.2 2Z"></path></svg>
+      </span>
+      <div>
+        <div style="font-family:'Fraunces',serif;font-weight:700;font-size:23px;letter-spacing:-0.01em;line-height:1.1;">Sähköennuste</div>
+        <div style="font-size:14px;opacity:0.65;margin-top:2px;">Diagnostiikka &amp; mallin seuranta</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:20px;">
+      <div style="text-align:right;font-size:13px;opacity:0.65;line-height:1.4;">
+        <div>Ajo</div>
+        <div style="font-family:'IBM Plex Mono',monospace;">{html.escape(p["forecast_run_id"][:8])}</div>
+      </div>
+      <div style="display:flex;gap:3px;background:rgba(247,244,236,0.10);padding:4px;border-radius:999px;">
+        <a href="index.html" style="padding:9px 17px;border-radius:999px;font-size:15px;font-weight:600;color:rgba(247,244,236,0.72);">Kuluttaja</a>
+        <span style="padding:9px 17px;border-radius:999px;font-size:15px;font-weight:700;background:#F7F4EC;color:#1C1B17;">Diagnostiikka</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1040px;margin:0 auto;padding:36px 24px 72px;">
+    <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:600;color:#6B6558;margin-bottom:18px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"></path></svg>
+      Takaisin kuluttajanäkymään
+    </a>
+
+    <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Ennusteen laatu</div>
+    <h1 style="font-family:'Fraunces',serif;font-weight:600;font-size:27px;margin:0 0 18px;">Mallin tarkkuus</h1>
+    {quality_kpis}
+    {quality_table}
+    {readiness_html}
+
+    <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Mallin tila</div>
+    <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0 0 14px;">Champion &amp; Challenger</h2>
+    {model_html}
+
+    <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Ennusteen taustatekijät</div>
+    <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0 0 14px;">Mittarit juuri nyt</h2>
+    {factor_html}
+
+    <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Tietolähteiden tuoreus</div>
+    <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0 0 14px;">Syötteet</h2>
+    {source_html}
+
+    <div style="text-align:center;color:#8A8577;font-size:13.5px;padding:22px 0 4px;">
+      Forecast run: {html.escape(p["forecast_run_id"])} · Electricity Forecaster v1.4.1 ·
+      <a href="index.html" style="font-weight:600;">Kuluttajanäkymä →</a>
+    </div>
+  </div>
+</div>
+</body></html>'''

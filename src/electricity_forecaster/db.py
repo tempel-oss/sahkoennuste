@@ -2,10 +2,19 @@ from __future__ import annotations
 import sqlite3
 from .config import DB_PATH
 
+# History note: this schema grew incrementally from v0.4 through v0.8 as the
+# project evolved (Fingrid -> ENTSO-E -> weather/features -> Nord Pool prices
+# -> price forecasting -> diagnostics). It used to be four separate
+# init_db()-wraps-the-previous-init_db() functions, one per version, each
+# appending its own CREATE TABLE block. That worked but was fragile to read
+# and to extend. It is now a single schema executed in one go; the version
+# comments below are kept only as a map of when each table group was added.
+
 SCHEMA = """
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
 
+-- v0.4: Fingrid ingestion (actuals/forecasts) + ENTSO-E ingestion
 CREATE TABLE IF NOT EXISTS actuals (
     dataset_id INTEGER NOT NULL,
     valid_time TEXT NOT NULL,
@@ -58,6 +67,9 @@ CREATE TABLE IF NOT EXISTS entsoe_runs (
     created_at TEXT NOT NULL
 );
 
+-- SQLite does not allow expressions (e.g. COALESCE(...)) inside a PRIMARY KEY
+-- definition. The ingester always writes psr_type as '' instead of NULL for
+-- series without a PSR type, so the plain column can be used directly here.
 CREATE TABLE IF NOT EXISTS entsoe_series (
     run_id TEXT NOT NULL,
     series_name TEXT NOT NULL,
@@ -72,7 +84,7 @@ CREATE TABLE IF NOT EXISTS entsoe_series (
     unit TEXT,
     source TEXT NOT NULL,
     FOREIGN KEY (run_id) REFERENCES entsoe_runs(run_id) ON DELETE CASCADE,
-    PRIMARY KEY (run_id, series_name, area, valid_time, COALESCE(psr_type,''))
+    PRIMARY KEY (run_id, series_name, area, valid_time, psr_type)
 );
 
 CREATE INDEX IF NOT EXISTS idx_entsoe_series_metric_valid ON entsoe_series(metric, valid_time);
@@ -88,27 +100,8 @@ CREATE TABLE IF NOT EXISTS entsoe_ingestion_log (
     message TEXT,
     created_at TEXT NOT NULL
 );
-"""
 
-
-def connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
-
-
-def init_db() -> None:
-    # SQLite does not allow expressions in PRIMARY KEY definitions. Migrate the v0.4
-    # ENTSO-E table with a normalized psr_type key instead.
-    fixed = SCHEMA.replace(
-        "PRIMARY KEY (run_id, series_name, area, valid_time, COALESCE(psr_type,''))",
-        "PRIMARY KEY (run_id, series_name, area, valid_time, psr_type)"
-    )
-    with connect() as conn:
-        conn.executescript(fixed)
-
-WEATHER_SCHEMA = """
+-- v0.5: weather ingestion + combined hourly feature store
 CREATE TABLE IF NOT EXISTS weather_runs (
     run_id TEXT PRIMARY KEY,
     issue_time TEXT NOT NULL,
@@ -153,15 +146,8 @@ CREATE TABLE IF NOT EXISTS service_health (
     status TEXT NOT NULL,
     detail TEXT
 );
-"""
 
-_old_init_db = init_db
-def init_db() -> None:
-    _old_init_db()
-    with connect() as conn:
-        conn.executescript(WEATHER_SCHEMA)
-
-V06_SCHEMA = """
+-- v0.6: Nord Pool day-ahead prices + input forecast error scoring
 CREATE TABLE IF NOT EXISTS price_runs (
     run_id TEXT PRIMARY KEY,
     issue_time TEXT NOT NULL,
@@ -193,15 +179,8 @@ CREATE TABLE IF NOT EXISTS forecast_errors (
     PRIMARY KEY(error_run_id,forecast_run_id,metric,valid_time)
 );
 CREATE INDEX IF NOT EXISTS idx_forecast_errors_metric ON forecast_errors(metric,horizon_hours);
-"""
 
-_prev_init_v05 = init_db
-def init_db() -> None:
-    _prev_init_v05()
-    with connect() as conn:
-        conn.executescript(V06_SCHEMA)
-
-V07_SCHEMA = """
+-- v0.7: price forecast runs, hourly/daily forecasts, and scoring
 CREATE TABLE IF NOT EXISTS price_forecast_runs (
     forecast_run_id TEXT PRIMARY KEY,
     issue_time TEXT NOT NULL,
@@ -261,16 +240,8 @@ CREATE TABLE IF NOT EXISTS price_forecast_scores (
     PRIMARY KEY(score_run_id,forecast_run_id,target_time)
 );
 CREATE INDEX IF NOT EXISTS idx_price_fc_scores_horizon ON price_forecast_scores(horizon_days,created_at);
-"""
 
-_prev_init_v061 = init_db
-def init_db() -> None:
-    _prev_init_v061()
-    with connect() as conn:
-        conn.executescript(V07_SCHEMA)
-
-
-V08_SCHEMA = """
+-- v0.8: forecast diagnostics, run-over-run changes, uncertainty breakdown
 CREATE TABLE IF NOT EXISTS forecast_diagnostics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id TEXT NOT NULL,
@@ -309,8 +280,14 @@ CREATE TABLE IF NOT EXISTS uncertainty_components (
 );
 """
 
-_prev_init_v07 = init_db
+
+def connect() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
 def init_db() -> None:
-    _prev_init_v07()
     with connect() as conn:
-        conn.executescript(V08_SCHEMA)
+        conn.executescript(SCHEMA)

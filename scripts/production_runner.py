@@ -64,6 +64,7 @@ try:
     from electricity_forecaster.diagnostics import build_diagnostics,build_changes
     from electricity_forecaster.production_output import build_latest_outputs
     from electricity_forecaster.forecast_quality import build_training_matrix,walk_forward_baseline_report
+    from prune_old_data import prune_default
 
     fingrid_ok,_=step("FINGRID",True,fingrid)
     step("NORDPOOL",False,ingest_prices)
@@ -121,6 +122,11 @@ try:
             exit_code=4
         print("\n[EI JULKAISTA] Uutta ennustetta ei syntynyt kokonaan. "
               "Vanhaa output-tiedostoa ei saa tulkita taman ajon ennusteeksi.")
+
+    # Housekeeping, independent of whether this run produced a forecast: delete
+    # data/raw run archives, production logs, and audit-log DB rows older than the
+    # default retention window (see scripts/prune_old_data.py). Never critical.
+    step("DATA_RETENTION",False,prune_default)
 
     print("\n=== YHTEENVETO ===")
     for name,status,msg in results:

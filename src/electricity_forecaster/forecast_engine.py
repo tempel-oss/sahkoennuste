@@ -9,6 +9,7 @@ import os
 import statistics
 import uuid
 
+from .config import VAT_RATE
 from .db import connect, init_db
 
 class _HelsinkiTZ(tzinfo):
@@ -74,8 +75,25 @@ class _HelsinkiTZ(tzinfo):
         return 'EEST' if self.dst(dt) else 'EET'
 
 
-HELSINKI = _HelsinkiTZ()
-VAT = 0.255
+# Prefer the real IANA database via the stdlib zoneinfo module - this is the same
+# "Europe/Helsinki" used by scripts/cloud_archive.py and scripts/cloud_gate.py, so
+# the whole codebase now agrees on one timezone implementation instead of two. On
+# Linux (including the GitHub Actions cloud runners) the system already ships the
+# tzdata database, so this succeeds with no extra dependency. Windows Python does
+# not bundle IANA tzdata, so on a machine without the (optional) `tzdata` PyPI
+# package this falls back to the hand-rolled _HelsinkiTZ above, which
+# scripts/compare_tz.py verifies agrees with zoneinfo hour-by-hour, including at
+# both DST transitions, for 2018-2036. This keeps the Windows-native package
+# dependency-free while still unifying on zoneinfo wherever it is available.
+try:
+    from zoneinfo import ZoneInfo as _ZoneInfo
+    HELSINKI: tzinfo = _ZoneInfo("Europe/Helsinki")
+    HELSINKI.utcoffset(datetime(2026, 6, 1))  # fail fast here if tzdata is missing
+except Exception:
+    HELSINKI = _HelsinkiTZ()
+# Canonical value now lives in config.VAT_RATE (see the note there); kept under this
+# name too since eur_mwh_to_ct_kwh_vat() below and any external caller use it as VAT.
+VAT = VAT_RATE
 MODEL_NAME = "fundamental_baseline"
 MODEL_VERSION = "0.7.1"
 
@@ -295,21 +313,45 @@ def _extended_load(dt: datetime, d: dict, beta: list[float] | None, fallback: fl
     return max(3500.0, min(16000.0, sum(a*b for a, b in zip(beta, x))))
 
 
-def _extended_wind(d: dict, coeff: tuple[float, float], cap: float | None, scenario: str = "p50") -> float:
-    direct = d.get("wind_forecast_mw") or d.get("wind_forecast_daily_mw")
-    if direct is not None and scenario == "p50":
-        return max(0.0, float(direct))
+def _wind_ensemble_estimate(d: dict, coeff: tuple[float, float], cap: float | None, scenario: str) -> float | None:
+    """Wind-power estimate derived purely from the weather-ensemble calibration
+    (independent of any direct Fingrid forecast). Returns None when there is no
+    usable wind-speed/capacity-factor signal for this scenario."""
     metric = {"p10": "weather_wind_p10_ms", "p50": "weather_wind_p50_ms", "p90": "weather_wind_p90_ms"}.get(scenario)
     speed = d.get(metric) if metric else None
     if speed is None:
         speed = d.get("weather_wind100_ms")
     cf = _wind_cf(float(speed)) if speed is not None else d.get("weather_wind_cf_proxy")
     if cf is None:
-        return max(0.0, float(direct or 0.0))
+        return None
     a, b = coeff
     v = a + b * cf
     upper = float(cap) * 1.05 if cap and cap > 0 else 9000.0
     return max(0.0, min(upper, v))
+
+
+def _extended_wind(d: dict, coeff: tuple[float, float], cap: float | None, scenario: str = "p50") -> float:
+    direct = d.get("wind_forecast_mw") or d.get("wind_forecast_daily_mw")
+    if direct is not None and scenario == "p50":
+        return max(0.0, float(direct))
+    ensemble_val = _wind_ensemble_estimate(d, coeff, cap, scenario)
+    if direct is not None and scenario in ("p10", "p90"):
+        # P50 comes from Fingrid's direct wind forecast, but p10/p90 used to be taken
+        # straight from an independent weather-ensemble calibration (a + b*cf fitted
+        # against Fingrid's own history). Mixing those two sources meant the "P10-P90"
+        # band was not necessarily centered on the P50 point forecast at all, and could
+        # be asymmetric or too narrow/wide for reasons unrelated to actual uncertainty.
+        # Anchor the ensemble-implied spread (as a ratio to the ensemble's own p50
+        # estimate) onto the direct forecast instead, so all three scenarios share the
+        # same center and the spread still reflects the ensemble's uncertainty.
+        ensemble_p50 = _wind_ensemble_estimate(d, coeff, cap, "p50")
+        if ensemble_val is not None and ensemble_p50 and ensemble_p50 > 0:
+            upper = float(cap) * 1.05 if cap and cap > 0 else 9000.0
+            ratio = ensemble_val / ensemble_p50
+            return max(0.0, min(upper, float(direct) * ratio))
+    if ensemble_val is None:
+        return max(0.0, float(direct or 0.0))
+    return ensemble_val
 
 
 def _extended_solar(d: dict, coeff: tuple[float, float], cap: float | None) -> float:

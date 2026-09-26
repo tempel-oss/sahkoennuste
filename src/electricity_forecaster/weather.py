@@ -20,26 +20,32 @@ def _archive(provider: str, run_id: str, name: str, body: bytes, ext: str):
 
 
 def fetch_ecmwf_deterministic(run_id: str, forecast_days=15):
-    rows=[]
+    # Each location is fetched and parsed independently, like fetch_fmi_harmonie
+    # already does: one location's request failing (timeout, bad response, ...)
+    # must not throw away the rows already collected for the other locations.
+    rows=[]; errors=[]
     hourly='temperature_2m,wind_speed_100m,cloud_cover,shortwave_radiation,precipitation'
     for loc in LOCATIONS:
-        q=urllib.parse.urlencode({
-            'latitude':loc['lat'],'longitude':loc['lon'],'hourly':hourly,
-            'models':'ecmwf_ifs','forecast_days':forecast_days,'timezone':'UTC','wind_speed_unit':'ms'
-        })
-        url='https://api.open-meteo.com/v1/forecast?'+q
-        body,_=_get(url); _archive('ecmwf_openmeteo',run_id,loc['name'].lower(),body,'json')
-        data=json.loads(body)
-        h=data.get('hourly',{}); times=h.get('time',[])
-        for i,t in enumerate(times):
-            for key,metric,unit in [
-                ('temperature_2m','temperature_2m_c','C'),('wind_speed_100m','wind_speed_100m_ms','m/s'),
-                ('cloud_cover','cloud_cover_pct','%'),('shortwave_radiation','shortwave_radiation_wm2','W/m2'),
-                ('precipitation','precipitation_mm','mm')]:
-                vals=h.get(key,[])
-                if i < len(vals) and vals[i] is not None:
-                    rows.append((loc['name'],t,metric,float(vals[i]),unit,'ecmwf_ifs_openmeteo'))
-    return rows
+        try:
+            q=urllib.parse.urlencode({
+                'latitude':loc['lat'],'longitude':loc['lon'],'hourly':hourly,
+                'models':'ecmwf_ifs','forecast_days':forecast_days,'timezone':'UTC','wind_speed_unit':'ms'
+            })
+            url='https://api.open-meteo.com/v1/forecast?'+q
+            body,_=_get(url); _archive('ecmwf_openmeteo',run_id,loc['name'].lower(),body,'json')
+            data=json.loads(body)
+            h=data.get('hourly',{}); times=h.get('time',[])
+            for i,t in enumerate(times):
+                for key,metric,unit in [
+                    ('temperature_2m','temperature_2m_c','C'),('wind_speed_100m','wind_speed_100m_ms','m/s'),
+                    ('cloud_cover','cloud_cover_pct','%'),('shortwave_radiation','shortwave_radiation_wm2','W/m2'),
+                    ('precipitation','precipitation_mm','mm')]:
+                    vals=h.get(key,[])
+                    if i < len(vals) and vals[i] is not None:
+                        rows.append((loc['name'],t,metric,float(vals[i]),unit,'ecmwf_ifs_openmeteo'))
+        except Exception as e:
+            errors.append(f"{loc['name']}: {e}")
+    return rows, errors
 
 
 def fetch_ecmwf_ensemble(run_id: str, forecast_days=15):
@@ -50,9 +56,12 @@ def fetch_ecmwf_ensemble(run_id: str, forecast_days=15):
     names={'Helsinki','Vaasa','Oulu'}
     locs=[x for x in LOCATIONS if x['name'] in names]
     for model in candidates:
-        try:
-            temp=[]
-            for loc in locs:
+        temp=[]; model_errors=[]
+        # Each location is isolated like fetch_fmi_harmonie/fetch_ecmwf_deterministic:
+        # one location failing for this model must not discard the other locations'
+        # rows already collected for the same model attempt.
+        for loc in locs:
+            try:
                 q=urllib.parse.urlencode({'latitude':loc['lat'],'longitude':loc['lon'],
                     'hourly':'temperature_2m,wind_speed_100m','models':model,
                     'forecast_days':forecast_days,'timezone':'UTC','wind_speed_unit':'ms'})
@@ -78,9 +87,11 @@ def fetch_ecmwf_ensemble(run_id: str, forecast_days=15):
                                          (loc['name'],t,metric+'_p90',qtile(.90),unit,model),
                                          (loc['name'],t,metric+'_spread80',qtile(.90)-qtile(.10),unit,model)])
                 _archive('ecmwf_ensemble_openmeteo',run_id,loc['name'].lower()+'_'+model,body,'json')
-            all_rows=temp; chosen=model; break
-        except Exception as e:
-            errors.append(f'{model}: {e}')
+            except Exception as e:
+                model_errors.append(f"{model}/{loc['name']}: {e}")
+        if temp:
+            all_rows=temp; chosen=model; errors+=model_errors; break
+        errors+=model_errors if model_errors else [f'{model}: no data for any location']
     return all_rows, chosen, errors
 
 

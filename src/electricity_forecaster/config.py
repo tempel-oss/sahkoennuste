@@ -9,6 +9,13 @@ DATASET_CONFIG = ROOT / "config" / "datasets.json"
 AREA_CONFIG = ROOT / "config" / "entsoe_areas.json"
 RAW_DIR = ROOT / "data" / "raw" / "fingrid"
 ENTSOE_RAW_DIR = ROOT / "data" / "raw" / "entsoe"
+# Finnish electricity VAT. This used to be defined separately in forecast_engine.py
+# (as 0.255, a rate multiplier) and in diagnostics.py/production_output.py (as 1.255,
+# a "price times this" multiplier) - same VAT, two different shapes, in three files.
+# One canonical definition here now; the modules re-export it under their previous
+# local names so nothing else has to change.
+VAT_RATE = 0.255
+EUR_MWH_TO_SNT_KWH_VAT = (1.0 + VAT_RATE) / 10.0
 FINGRID_API_BASE = "https://data.fingrid.fi/api"
 # ENTSO-E has a newer TP endpoint and a legacy production endpoint documented by ENTSO-E.
 # The client tries these in order for transient gateway/service failures.

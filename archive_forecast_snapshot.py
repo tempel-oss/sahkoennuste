@@ -9,11 +9,14 @@ import hashlib
 import json
 import shutil
 
-
 HELSINKI = ZoneInfo("Europe/Helsinki")
+SLOT_TIMES = {
+    "morning": (6, 15),
+    "afternoon": (16, 15),
+}
 
 
-def sha256(path: Path):
+def sha256(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
@@ -21,89 +24,91 @@ def sha256(path: Path):
     return h.hexdigest()
 
 
-def append_index(index_path: Path, row: dict):
+def _upsert_index(index_path: Path, row: dict) -> None:
     index_path.parent.mkdir(parents=True, exist_ok=True)
-    exists = index_path.exists()
-    with index_path.open("a", newline="", encoding="utf-8") as f:
+    rows = []
+    if index_path.exists():
+        with index_path.open("r", newline="", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+
+    key = row["scheduled_issue_time_local"]
+    rows = [r for r in rows if r.get("scheduled_issue_time_local") != key]
+    rows.append(row)
+    rows.sort(key=lambda r: r.get("scheduled_issue_time_local", ""))
+
+    with index_path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(row.keys()))
-        if not exists:
-            w.writeheader()
-        w.writerow(row)
+        w.writeheader()
+        w.writerows(rows)
 
 
-def main():
-    p = argparse.ArgumentParser(
-        description="Archive the latest production forecast by forecast origin."
-    )
-    p.add_argument("--root", default=".")
-    p.add_argument(
-        "--json-source",
-        default=r"output\latest_forecast.json",
-    )
-    p.add_argument(
-        "--html-source",
-        default=r"output\latest_forecast.html",
-    )
-    args = p.parse_args()
-
-    root = Path(args.root).resolve()
-    json_source = root / args.json_source
-    html_source = root / args.html_source
+def archive_snapshot(root: Path, slot: str,
+                     json_source_rel: str = "output/latest_forecast.json",
+                     html_source_rel: str = "output/latest_forecast.html") -> int:
+    root = Path(root).resolve()
+    json_source = root / Path(json_source_rel)
+    html_source = root / Path(html_source_rel)
 
     if not json_source.exists():
-        raise SystemExit(
-            f"Archive skipped: forecast JSON not found: {json_source}"
-        )
+        print(f"[VIRHE] Ennuste-JSON puuttuu: {json_source}")
+        return 2
 
     now_utc = datetime.now(timezone.utc)
     now_local = now_utc.astimezone(HELSINKI)
 
-    # Scheduled runs are 06:15 and 16:15. The slot is intentionally based on
-    # the actual run time, so a delayed morning run still remains identifiable.
-    slot = "morning" if now_local.hour < 12 else "afternoon"
-    stamp = now_local.strftime("%Y%m%d_%H%M%S")
+    hour, minute = SLOT_TIMES[slot]
+    scheduled_local = now_local.replace(
+        hour=hour, minute=minute, second=0, microsecond=0
+    )
+    scheduled_utc = scheduled_local.astimezone(timezone.utc)
 
     day_dir = (
         root
         / "data"
         / "forecast_archive"
-        / now_local.strftime("%Y")
-        / now_local.strftime("%m")
-        / now_local.strftime("%d")
+        / scheduled_local.strftime("%Y")
+        / scheduled_local.strftime("%m")
+        / scheduled_local.strftime("%d")
     )
     day_dir.mkdir(parents=True, exist_ok=True)
 
-    json_dest = day_dir / f"forecast_{stamp}_{slot}.json"
+    code = scheduled_local.strftime("%H%M")
+    base = f"forecast_{scheduled_local:%Y%m%d}_{code}_{slot}"
+
+    json_dest = day_dir / f"{base}.json"
     shutil.copy2(json_source, json_dest)
 
     html_dest = None
     if html_source.exists():
-        html_dest = day_dir / f"forecast_{stamp}_{slot}.html"
+        html_dest = day_dir / f"{base}.html"
         shutil.copy2(html_source, html_dest)
 
+    source_mtime_local = datetime.fromtimestamp(
+        json_source.stat().st_mtime, tz=timezone.utc
+    ).astimezone(HELSINKI)
+
     meta = {
-        "issue_time_utc": now_utc.isoformat(),
-        "issue_time_local": now_local.isoformat(),
+        "scheduled_issue_time_local": scheduled_local.isoformat(),
+        "scheduled_issue_time_utc": scheduled_utc.isoformat(),
+        "archive_time_local": now_local.isoformat(),
+        "archive_time_utc": now_utc.isoformat(),
         "issue_slot": slot,
         "source_json": str(json_source.relative_to(root)),
+        "source_json_mtime_local": source_mtime_local.isoformat(),
         "archive_json": str(json_dest.relative_to(root)),
-        "archive_html": (
-            str(html_dest.relative_to(root)) if html_dest else None
-        ),
+        "archive_html": str(html_dest.relative_to(root)) if html_dest else None,
         "json_sha256": sha256(json_dest),
     }
 
-    meta_path = day_dir / f"forecast_{stamp}_{slot}.meta.json"
-    meta_path.write_text(
-        json.dumps(meta, indent=2),
-        encoding="utf-8",
-    )
+    meta_path = day_dir / f"{base}.meta.json"
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
-    append_index(
+    _upsert_index(
         root / "data" / "forecast_archive" / "index.csv",
         {
-            "issue_time_utc": meta["issue_time_utc"],
-            "issue_time_local": meta["issue_time_local"],
+            "scheduled_issue_time_local": meta["scheduled_issue_time_local"],
+            "scheduled_issue_time_utc": meta["scheduled_issue_time_utc"],
+            "archive_time_local": meta["archive_time_local"],
             "issue_slot": slot,
             "archive_json": meta["archive_json"],
             "archive_html": meta["archive_html"] or "",
@@ -111,10 +116,35 @@ def main():
         },
     )
 
-    print("FORECAST SNAPSHOT SAVED")
-    print(f"slot: {slot}")
-    print(f"json: {json_dest}")
+    print("[OK] Ennustesnapshot tallennettu.")
+    print(f"Slot: {slot}")
+    print(f"Issue: {scheduled_local:%Y-%m-%d %H:%M %Z}")
+    print(f"JSON: {json_dest}")
+    return 0
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(
+        description="Archive one successful Electricity Forecaster production run."
+    )
+    p.add_argument("--root", default=".")
+    p.add_argument(
+        "--slot",
+        choices=("morning", "afternoon"),
+        required=True,
+        help="Scheduled forecast origin.",
+    )
+    p.add_argument("--json-source", default="output/latest_forecast.json")
+    p.add_argument("--html-source", default="output/latest_forecast.html")
+    args = p.parse_args()
+
+    return archive_snapshot(
+        Path(args.root),
+        args.slot,
+        args.json_source,
+        args.html_source,
+    )
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

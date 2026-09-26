@@ -11,7 +11,7 @@ def ingest_weather():
         try:
             r=fn()
             if provider=='ensemble': rows,chosen,errs=r; messages.append('ensemble_model='+str(chosen)); messages += errs
-            elif provider=='fmi': rows,errs=r; messages += errs
+            elif provider in ('fmi','ecmwf'): rows,errs=r; messages += errs
             else: rows=r
             allrows += rows; print(f'[OK] {provider}: {len(rows)} rivia')
         except Exception as e: messages.append(f'{provider}: {e}'); print(f'[VAROITUS] {provider}: {e}')

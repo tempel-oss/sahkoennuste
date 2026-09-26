@@ -1,9 +1,11 @@
 
 import json, sqlite3
+from .config import EUR_MWH_TO_SNT_KWH_VAT
 from .db import connect, init_db
 
-VAT = 1.255
-EURMWH_TO_SNTKWH_VAT = VAT / 10.0
+# Canonical VAT definition now lives in config.py (see the note there); re-exported
+# under this module's previous local name so the usage sites below don't change.
+EURMWH_TO_SNTKWH_VAT = EUR_MWH_TO_SNT_KWH_VAT
 
 def _connect():
     con=connect()
