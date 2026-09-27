@@ -8,7 +8,15 @@ logs/*.log
 data/raw/
 
 .env
-data/
+# data/ is ignored wholesale (raw ingested data, the local SQLite DB, the ML
+# training matrix) except for the small, committed residual-Challenger
+# artifact below - see model_registry.register_challenger_from_artifact()
+# and loydokset_ja_korjaukset.md. A parent dir being ignored blocks git from
+# even looking inside it, so each level has to be un-ignored on the way down.
+data/*
+!data/ml/
+data/ml/*
+!data/ml/challenger_residual_hgb_v1/
 logs/
 __pycache__/
 *.pyc

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Residual Challenger v1</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#eef4fb;color:#152238;margin:0}
+main{max-width:980px;margin:auto;padding:28px 18px}
+.hero{background:linear-gradient(120deg,#092f76,#2563eb,#0ea5e9);color:white;border-radius:20px;padding:24px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.card{background:white;border:1px solid #dce5f1;border-radius:16px;padding:16px;box-shadow:0 10px 28px rgba(30,64,120,.08)}
+.big{font-size:2rem;font-weight:800} small{color:#64748b}
+table{width:100%;border-collapse:collapse;background:white;border-radius:16px;overflow:hidden}
+th,td{padding:10px;border-bottom:1px solid #e7edf5;text-align:left}
+th{background:#f7f9fc;color:#64748b}
+.good{color:#15803d} .bad{color:#b91c1c}
+.note{background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;padding:14px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+</style></head><body><main>
+<div class="hero">
+<h1 style="margin:0">Residual Challenger v1</h1>
+<p>Shadow-only · Champion fundamental_baseline 0.7.1 + ML-residualikorjaus</p>
+</div>
+<div class="grid">
+<div class="card"><small>Champion MAE</small><div class="big">16.70</div><small>EUR/MWh</small></div>
+<div class="card"><small>Challenger MAE</small><div class="big">22.58</div><small>EUR/MWh</small></div>
+<div class="card"><small>MAE skill</small><div class="big" style="color:#b91c1c">-35.20%</div><small>positiivinen = Challenger parempi</small></div>
+</div>
+<div class="card">
+<h2>Walk-forward horisonteittain</h2>
+<table><thead><tr><th>Horisontti</th><th>n</th><th>Champion MAE</th><th>Challenger MAE</th><th>Skill</th></tr></thead>
+<tbody><tr><td>D+2</td><td>21</td><td>16.70</td><td>22.58</td><td>-35.20%</td></tr></tbody></table>
+</div>
+<div class="card" style="margin-top:16px">
+<h2>Aamu vs iltapäivä</h2>
+<table><thead><tr><th>Slot</th><th>n</th><th>Champion MAE</th><th>Challenger MAE</th><th>Skill</th></tr></thead>
+<tbody><tr><td>afternoon</td><td>21</td><td>16.70</td><td>22.58</td><td>-35.20%</td></tr></tbody></table>
+</div>
+<div class="note" style="margin-top:16px">
+<b>Ei tuotantoon automaattisesti.</b> Tämä malli on Challenger/shadow-malli. Championia ei vaihdeta tämän ajon perusteella.
+Historiallinen dual-origin-aineisto: 879,078 riviä. Sitä ei käytetä vielä residual-targettiin, koska siinä ei ole historiallisen tuotanto-Championin P50-arvoa joka issue-hetkelle.
+</div>
+</main></body></html>

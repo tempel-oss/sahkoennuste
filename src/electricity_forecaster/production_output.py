@@ -914,6 +914,35 @@ def _render_diagnostics_html(p):
       <div style="display:flex;align-items:center;gap:12px;padding:15px 0;"><span style="font-size:15.5px;color:#3A382F;flex:1;">Challenger-koulutus</span>{ready_pill}</div>
     </div>'''
 
+    chall=ms.get("challenger") or {}
+    if chall:
+        c_n=chall.get("walk_forward_n")
+        c_skill=chall.get("walk_forward_mae_skill_pct")
+        c_champ_mae=chall.get("walk_forward_champion_mae_eur_mwh")
+        c_chall_mae=chall.get("walk_forward_challenger_mae_eur_mwh")
+        c_thin=chall.get("sample_is_thin")
+        c_better=chall.get("outperforms_champion")
+        if c_better and not c_thin:
+            v_bg,v_fg,v_text="#E4F2EF","#0B4F49","Parempi kuin Champion — harkitaan jatkoarviointia"
+        elif c_skill is not None and c_skill < 0:
+            v_bg,v_fg,v_text="#FBECEA","#8C2E22",f"{abs(c_skill):.0f} % huonompi kuin Champion — ei suositella tuotantoon"
+        else:
+            v_bg,v_fg,v_text="#F1EFE9","#6B6558","Ei vielä riittävästi näyttöä"
+        c_range=""
+        if chall.get("walk_forward_issue_start") and chall.get("walk_forward_issue_end"):
+            c_range=f' ({str(chall["walk_forward_issue_start"])[:10]}–{str(chall["walk_forward_issue_end"])[:10]})'
+        challenger_html=f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:16px;padding:6px 22px;margin-bottom:36px;">
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="font-size:15.5px;color:#3A382F;flex:1;">Challenger-malli</span><b style="font-family:'IBM Plex Mono',monospace;font-size:15.5px;">{html.escape(str(chall.get("name","—")))} {html.escape(str(chall.get("version","")))}</b></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="font-size:15.5px;color:#3A382F;flex:1;">Walk-forward-otos</span><b style="font-family:'IBM Plex Mono',monospace;font-size:15.5px;">{c_n if c_n is not None else "—"} tuntia{html.escape(c_range)}</b></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="font-size:15.5px;color:#3A382F;flex:1;">MAE Champion / Challenger</span><b style="font-family:'IBM Plex Mono',monospace;font-size:15.5px;">{_fmt_fi(c_champ_mae,2)} / {_fmt_fi(c_chall_mae,2)} EUR/MWh</b></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 0;{'border-bottom:1px solid rgba(28,27,23,0.06);' if c_thin else ''}"><span style="font-size:15.5px;color:#3A382F;flex:1;">Tila</span><span style="display:inline-flex;align-items:center;gap:6px;background:{v_bg};color:{v_fg};padding:5px 11px;border-radius:999px;font-size:14px;font-weight:700;">{html.escape(v_text)}</span></div>
+      {f'<div style="padding:6px 0 15px;font-size:13.5px;color:#8A8577;">Otos on vielä pieni ({c_n} tuntia) — tulos ei ole tilastollisesti luotettava. Lukua tarkennetaan sitä mukaa kun uutta pisteytettyä dataa kertyy.</div>' if c_thin else ""}
+    </div>'''
+    else:
+        challenger_html='''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:16px;padding:20px 22px;margin-bottom:36px;font-size:15px;color:#6B6558;">
+      Ei koulutettua Challenger-mallia rekisteröitynä.
+    </div>'''
+
     dg=p["days"][0].get("diagnostics",{}) if p.get("days") else {}
     factor_specs=[("Kulutus","consumption_forecast","MW"),("Tuuli","wind_forecast","MW"),("Aurinko","solar_forecast","MW"),("Residual load","residual_load","MW"),("Lämpötila","temperature","°C")]
     factors=[]
@@ -983,6 +1012,7 @@ def _render_diagnostics_html(p):
     <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Mallin tila</div>
     <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0 0 14px;">Champion &amp; Challenger</h2>
     {model_html}
+    {challenger_html}
 
     <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Ennusteen taustatekijät</div>
     <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0 0 14px;">Mittarit juuri nyt</h2>

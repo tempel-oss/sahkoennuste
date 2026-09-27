@@ -60,6 +60,7 @@ try:
     from electricity_forecaster.completeness import check
     from electricity_forecaster.error_scoring import score_forecast_errors
     from electricity_forecaster.price_forecast_scoring import score_price_forecasts
+    from electricity_forecaster.model_registry import register_challenger_from_artifact
     from electricity_forecaster.forecast_engine import make_forecast
     from electricity_forecaster.diagnostics import build_diagnostics,build_changes
     from electricity_forecaster.production_output import build_latest_outputs
@@ -111,6 +112,7 @@ try:
         step("FORECAST_CHANGES",False,build_changes)
 
     step("PRICE_FORECAST_SCORING",False,score_price_forecasts)
+    step("CHALLENGER_REGISTRY",False,register_challenger_from_artifact)
     step("ML_TRAINING_MATRIX",False,build_training_matrix)
     step("WALK_FORWARD_BASELINE",False,walk_forward_baseline_report)
 

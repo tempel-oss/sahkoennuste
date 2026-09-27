@@ -1,0 +1,255 @@
+{
+  "schema_version": "1.0",
+  "generated_at_utc": "2026-09-17T17:42:26+00:00",
+  "status": "shadow_only",
+  "champion": {
+    "model_name": "fundamental_baseline",
+    "model_version": "0.7.1"
+  },
+  "challenger": {
+    "model_name": "residual_hgb",
+    "model_version": "0.1",
+    "algorithm": "sklearn HistGradientBoostingRegressor",
+    "target": "actual_eur_mwh - champion_p50_eur_mwh",
+    "formula": "challenger_p50 = champion_p50 + predicted_residual",
+    "features": [
+      "p50_eur_mwh",
+      "p10_eur_mwh",
+      "p90_eur_mwh",
+      "baseline_eur_mwh",
+      "load_est_mw",
+      "wind_est_mw",
+      "solar_est_mw",
+      "net_load_est_mw",
+      "horizon_days",
+      "forecast_spread_eur_mwh",
+      "p50_vs_simple_baseline_eur_mwh",
+      "wind_share_of_load",
+      "solar_share_of_load",
+      "net_load_share_of_load",
+      "target_hour_sin",
+      "target_hour_cos",
+      "target_dow_sin",
+      "target_dow_cos",
+      "target_doy_sin",
+      "target_doy_cos",
+      "target_is_weekend",
+      "issue_slot_afternoon",
+      "lead_hours"
+    ],
+    "sklearn_version": "1.9.1"
+  },
+  "data": {
+    "matrix_path": "C:\\Users\\Teemu\\ChatGPT\\v1.4.1\\electricity_forecaster\\data\\ml\\training_matrix.csv",
+    "rows": 8713,
+    "forecast_runs": 21,
+    "issue_start": "2026-09-01T21:59:16+00:00",
+    "issue_end": "2026-09-06T14:22:46+00:00"
+  },
+  "leakage_controls": {
+    "walk_forward": "chronological expanding-window",
+    "purge_rule": "train issue_time < test_start AND train target_time < test_start",
+    "realized_target_used_as_feature": false,
+    "forecast_error_used_as_feature": false
+  },
+  "walk_forward": {
+    "folds": [
+      {
+        "n": 11,
+        "champion": {
+          "n": 11,
+          "mae_eur_mwh": 16.936,
+          "rmse_eur_mwh": 16.936,
+          "median_ae_eur_mwh": 16.936,
+          "bias_eur_mwh": 16.936
+        },
+        "challenger": {
+          "n": 11,
+          "mae_eur_mwh": 22.508,
+          "rmse_eur_mwh": 22.508,
+          "median_ae_eur_mwh": 22.508,
+          "bias_eur_mwh": 22.508
+        },
+        "mae_skill_pct": -32.9,
+        "fold": 3,
+        "train_rows": 5549,
+        "train_runs": 14,
+        "test_rows": 11,
+        "test_runs": 2,
+        "test_issue_start": "2026-09-06T13:28:48+00:00",
+        "test_issue_end": "2026-09-06T13:32:55+00:00"
+      },
+      {
+        "n": 7,
+        "champion": {
+          "n": 7,
+          "mae_eur_mwh": 16.443,
+          "rmse_eur_mwh": 16.443,
+          "median_ae_eur_mwh": 16.443,
+          "bias_eur_mwh": 16.443
+        },
+        "challenger": {
+          "n": 7,
+          "mae_eur_mwh": 22.617,
+          "rmse_eur_mwh": 22.617,
+          "median_ae_eur_mwh": 22.616,
+          "bias_eur_mwh": 22.617
+        },
+        "mae_skill_pct": -37.55,
+        "fold": 4,
+        "train_rows": 5647,
+        "train_runs": 14,
+        "test_rows": 7,
+        "test_runs": 2,
+        "test_issue_start": "2026-09-06T14:04:34+00:00",
+        "test_issue_end": "2026-09-06T14:13:10+00:00"
+      },
+      {
+        "n": 3,
+        "champion": {
+          "n": 3,
+          "mae_eur_mwh": 16.443,
+          "rmse_eur_mwh": 16.443,
+          "median_ae_eur_mwh": 16.443,
+          "bias_eur_mwh": 16.443
+        },
+        "challenger": {
+          "n": 3,
+          "mae_eur_mwh": 22.757,
+          "rmse_eur_mwh": 22.758,
+          "median_ae_eur_mwh": 22.616,
+          "bias_eur_mwh": 22.757
+        },
+        "mae_skill_pct": -38.4,
+        "fold": 5,
+        "train_rows": 5647,
+        "train_runs": 14,
+        "test_rows": 3,
+        "test_runs": 2,
+        "test_issue_start": "2026-09-06T14:20:31+00:00",
+        "test_issue_end": "2026-09-06T14:22:46+00:00"
+      }
+    ],
+    "overall": {
+      "n": 21,
+      "champion": {
+        "n": 21,
+        "mae_eur_mwh": 16.701,
+        "rmse_eur_mwh": 16.703,
+        "median_ae_eur_mwh": 16.936,
+        "bias_eur_mwh": 16.701
+      },
+      "challenger": {
+        "n": 21,
+        "mae_eur_mwh": 22.58,
+        "rmse_eur_mwh": 22.58,
+        "median_ae_eur_mwh": 22.508,
+        "bias_eur_mwh": 22.58
+      },
+      "mae_skill_pct": -35.2
+    },
+    "by_horizon": {
+      "2": {
+        "n": 21,
+        "champion": {
+          "n": 21,
+          "mae_eur_mwh": 16.701,
+          "rmse_eur_mwh": 16.703,
+          "median_ae_eur_mwh": 16.936,
+          "bias_eur_mwh": 16.701
+        },
+        "challenger": {
+          "n": 21,
+          "mae_eur_mwh": 22.58,
+          "rmse_eur_mwh": 22.58,
+          "median_ae_eur_mwh": 22.508,
+          "bias_eur_mwh": 22.58
+        },
+        "mae_skill_pct": -35.2
+      }
+    },
+    "by_slot": {
+      "afternoon": {
+        "n": 21,
+        "champion": {
+          "n": 21,
+          "mae_eur_mwh": 16.701,
+          "rmse_eur_mwh": 16.703,
+          "median_ae_eur_mwh": 16.936,
+          "bias_eur_mwh": 16.701
+        },
+        "challenger": {
+          "n": 21,
+          "mae_eur_mwh": 22.58,
+          "rmse_eur_mwh": 22.58,
+          "median_ae_eur_mwh": 22.508,
+          "bias_eur_mwh": 22.58
+        },
+        "mae_skill_pct": -35.2
+      }
+    }
+  },
+  "historical_dataset": {
+    "path": "data\\processed\\v1_5_8\\horizon_asof_dual_d2_d12.parquet",
+    "exists": true,
+    "used_for_residual_training": false,
+    "reason": "The dual-origin historical dataset is leakage-safe, but it does not contain the production fundamental_baseline 0.7.1 P50 forecast for each historical issue. Therefore it cannot supply the exact residual target actual-minus-production-P50.",
+    "rows": 879078,
+    "columns": [
+      "issue_time_local",
+      "issue_time_utc",
+      "issue_slot",
+      "issue_time_code",
+      "issue_hour_local",
+      "issue_minute_local",
+      "issue_hour_sin",
+      "issue_hour_cos",
+      "price_last_at_issue",
+      "price_mean_24h_at_issue",
+      "price_mean_7d_at_issue",
+      "price_std_7d_at_issue",
+      "price_min_7d_at_issue",
+      "price_max_7d_at_issue",
+      "consumption_last_at_issue",
+      "consumption_mean_24h_at_issue",
+      "consumption_mean_7d_at_issue",
+      "production_last_at_issue",
+      "production_mean_24h_at_issue",
+      "production_mean_7d_at_issue",
+      "wind_last_at_issue",
+      "wind_mean_24h_at_issue",
+      "wind_mean_7d_at_issue",
+      "wind_capacity_latest_at_issue",
+      "target_time_utc",
+      "horizon_day",
+      "horizon_hours",
+      "target_price_eur_mwh",
+      "target_hour_local",
+      "target_weekday_local",
+      "target_month_local",
+      "target_is_weekend",
+      "target_hour_sin",
+      "target_hour_cos",
+      "target_doy_sin",
+      "target_doy_cos",
+      "target_same_hour_price_lag_7d",
+      "target_same_hour_price_lag_7d_available",
+      "target_same_hour_price_lag_14d",
+      "target_same_hour_price_lag_14d_available",
+      "target_same_hour_price_lag_21d",
+      "target_same_hour_price_lag_21d_available",
+      "target_same_hour_price_lag_28d",
+      "target_same_hour_price_lag_28d_available"
+    ]
+  },
+  "promotion": {
+    "automatic": false,
+    "recommended_next_step": "Run in shadow mode and accumulate live Champion-vs-Challenger evidence before any promotion."
+  },
+  "artifacts": {
+    "model": "data\\ml\\challenger_residual_hgb_v1\\model.joblib",
+    "predictions": "data\\ml\\challenger_residual_hgb_v1\\walk_forward_predictions.csv",
+    "report_json": "data\\ml\\challenger_residual_hgb_v1\\report.json",
+    "report_html": "data\\ml\\challenger_residual_hgb_v1\\report.html"
+  }
+}
