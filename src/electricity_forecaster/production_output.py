@@ -453,7 +453,7 @@ def _narrative_paragraphs(p):
             para2+=" "+extra[0:1].upper()+extra[1:]+"."
     return para1,para2
 
-def _hourly_bar_chart(hourly, now_hour=None):
+def _hourly_bar_chart(hourly, chart_date=None):
     """24-bar hourly price chart for one published day-ahead day: bar height is the
     exact hourly price (zero-baselined, since Finnish spot prices occasionally go
     negative), bar colour is the same 5-step price-tone ramp used on the pill next
@@ -469,7 +469,16 @@ def _hourly_bar_chart(hourly, now_hour=None):
     on a phone. Keeping the viewBox near 1:1 with the card, and taller/squarer
     than a typical wide line chart, keeps the bars and their labels readable at
     the sizes this chart is actually shown at, with .hourly-chart's own
-    (larger) text classes so the separate 12-day chart is untouched."""
+    (larger) text classes so the separate 12-day chart is untouched.
+
+    This page is static HTML built at forecast-run time (roughly 06:xx and
+    16:xx), but is often viewed hours later — a "now" marker computed here,
+    server-side, would freeze at the generation time instead of tracking when
+    the visitor actually looks at the page. So no "now" line is drawn here at
+    all: each bar gets a data-hour attribute and the svg a data-chart-date
+    attribute, and a small script at the bottom of the page (see
+    _page_scripts) works out the real Europe/Helsinki wall-clock time in the
+    visitor's browser and draws the marker onto the matching bar client-side."""
     hourly=[h for h in hourly if h.get("price_snt_kwh_vat") is not None]
     if not hourly:
         return '<div class="empty-chart">Tuntihintoja ei ole vielä saatavilla.</div>'
@@ -505,13 +514,9 @@ def _hourly_bar_chart(hourly, now_hour=None):
         is_extreme=(h is cheapest) or (h is expensive)
         label=f"klo {hr:02d}–{(hr+1)%24:02d}: {_fmt_fi(v,2)} snt/kWh"
         bars.append(
-          f'<rect x="{x:.1f}" y="{top_y:.1f}" width="{bw:.1f}" height="{bar_h:.1f}" rx="3" '
+          f'<rect x="{x:.1f}" y="{top_y:.1f}" width="{bw:.1f}" height="{bar_h:.1f}" rx="3" data-hour="{hr}" '
           f'fill="{color}" opacity="{1.0 if is_extreme else 0.8}"><title>{html.escape(label)}</title></rect>'
         )
-        if now_hour is not None and hr==now_hour:
-            nx=x+bw/2
-            bars.append(f'<line x1="{nx:.1f}" y1="{top-6}" x2="{nx:.1f}" y2="{H-bottom}" class="nowline"/>')
-            bars.append(f'<text x="{nx:.1f}" y="{top-9}" text-anchor="middle" class="hbar-nowlabel">nyt</text>')
         if hr%3==0:
             bars.append(f'<text x="{x+bw/2:.1f}" y="{H-bottom+20}" text-anchor="middle" class="hbar-hourlab">{hr:02d}</text>')
     for h in (cheapest,expensive):
@@ -520,7 +525,10 @@ def _hourly_bar_chart(hourly, now_hour=None):
         if i<=1: anchor,lx="start",X(i)
         elif i>=n-2: anchor,lx="end",X(i)+bw
         bars.append(f'<text x="{lx:.1f}" y="{y-8:.1f}" text-anchor="{anchor}" class="hbar-valuelabel">{_fmt_fi(h["price_snt_kwh_vat"],2)}</text>')
-    return f'<svg class="hourly-chart" viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMid meet">{"".join(grid)}{"".join(bars)}</svg>'
+    date_attr=f' data-chart-date="{html.escape(chart_date)}"' if chart_date else ''
+    return (f'<svg class="hourly-chart" viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMid meet"{date_attr} '
+            f'data-now-top="{top-6}" data-now-label-y="{top-9}" data-now-bottom="{H-bottom}">'
+            f'{"".join(grid)}{"".join(bars)}</svg>')
 
 def _hourly_table(hourly):
     """Accessible table twin of the hourly bar chart, tucked behind a native
@@ -606,6 +614,54 @@ def _sw_script():
   if("serviceWorker" in navigator){
     window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
   }
+  // The hourly price chart is static HTML built at forecast-run time
+  // (roughly 06:xx/16:xx), often viewed hours later, so the "now" marker on
+  // it cannot be baked in server-side — it would freeze at generation time
+  // instead of showing when the visitor is actually looking. Each bar carries
+  // a data-hour attribute and its chart a data-chart-date attribute; this
+  // works out the real Europe/Helsinki wall-clock time in the visitor's own
+  // browser (regardless of the visitor's device timezone) and draws the
+  // marker onto the matching bar, re-checking every minute in case the page
+  // is left open across an hour boundary.
+  function helsinkiNow(){
+    const fmt=new Intl.DateTimeFormat("en-CA",{
+      timeZone:"Europe/Helsinki",year:"numeric",month:"2-digit",day:"2-digit",
+      hour:"2-digit",hour12:false
+    });
+    const parts={};
+    fmt.formatToParts(new Date()).forEach(p=>{ parts[p.type]=p.value; });
+    let hour=parseInt(parts.hour,10);
+    if(!Number.isFinite(hour) || hour===24) hour=0;
+    return {date:`${parts.year}-${parts.month}-${parts.day}`,hour:hour};
+  }
+  function positionNowMarkers(){
+    let now;
+    try{ now=helsinkiNow(); }catch(e){ return; }
+    document.querySelectorAll("svg.hourly-chart[data-chart-date]").forEach((svg)=>{
+      svg.querySelectorAll(".js-nowline,.js-nowlabel").forEach((el)=>el.remove());
+      if(svg.getAttribute("data-chart-date")!==now.date) return;
+      const bar=svg.querySelector('rect[data-hour="'+now.hour+'"]');
+      if(!bar) return;
+      const x=parseFloat(bar.getAttribute("x")), w=parseFloat(bar.getAttribute("width"));
+      if(!Number.isFinite(x) || !Number.isFinite(w)) return;
+      const nx=(x+w/2).toFixed(1);
+      const top=svg.getAttribute("data-now-top"), labelY=svg.getAttribute("data-now-label-y"),
+            bottom=svg.getAttribute("data-now-bottom");
+      const ns="http://www.w3.org/2000/svg";
+      const line=document.createElementNS(ns,"line");
+      line.setAttribute("x1",nx); line.setAttribute("y1",top);
+      line.setAttribute("x2",nx); line.setAttribute("y2",bottom);
+      line.setAttribute("class","nowline js-nowline");
+      const label=document.createElementNS(ns,"text");
+      label.setAttribute("x",nx); label.setAttribute("y",labelY);
+      label.setAttribute("text-anchor","middle");
+      label.setAttribute("class","hbar-nowlabel js-nowlabel");
+      label.textContent="nyt";
+      svg.appendChild(line); svg.appendChild(label);
+    });
+  }
+  positionNowMarkers();
+  setInterval(positionNowMarkers,60000);
 })();
 </script>''')
 
@@ -613,7 +669,6 @@ def _render_html(p):
     """Consumer page ('Kuluttaja'): today/tomorrow price, the 12-day outlook, a short
     plain-language recap of what changed and why, and a link through to Diagnostiikka."""
     accent="#0B4F49"
-    now_hour=datetime.now(HELSINKI).hour
     pub_cards=[]
     for x in p.get("published_day_ahead",[]):
         d_plus=x.get("d_plus",0)
@@ -632,7 +687,7 @@ def _render_html(p):
                 if not detail or detail.get("resolution_minutes",60)>=60: return ""
                 return (f'<div style="font-size:11px;color:#8A8577;margin-top:3px;line-height:1.3;">'
                         f'klo {detail["window"]}<br>({detail["resolution_minutes"]} min)</div>')
-            chart_svg=_hourly_bar_chart(hourly, now_hour if d_plus==0 else None)
+            chart_svg=_hourly_bar_chart(hourly, chart_date=x.get("date"))
             table_html=_hourly_table(hourly)
             res_note=(f'Kaavio: tuntien keskiarvohinnat ({res_min} min -pohjadatasta)' if res_min!=60
                        else 'Kaavio: tuntihinnat')
