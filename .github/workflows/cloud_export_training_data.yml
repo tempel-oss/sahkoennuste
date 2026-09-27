@@ -1,0 +1,36 @@
+name: Cloud training data export
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore SQLite history
+        uses: actions/cache/restore@v4
+        with:
+          path: data/electricity_forecaster.sqlite3
+          key: training-export-${{ github.run_id }}
+          restore-keys: |
+            forecast-db-
+          fail-on-cache-miss: true
+
+      - name: Export training tables (price_forecast_scores de-duplicated)
+        run: python scripts/cloud_export_training_data.py
+
+      - name: Upload export as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-training-export-${{ github.run_id }}
+          path: |
+            dist/cloud_training_export.sqlite3
+            dist/cloud_training_export_manifest.json
+          retention-days: 14

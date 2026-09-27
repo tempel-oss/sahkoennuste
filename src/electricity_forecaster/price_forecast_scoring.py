@@ -16,9 +16,20 @@ def score_price_forecasts():
             try: k=_parse_dt(t).replace(minute=0,second=0,microsecond=0).isoformat()
             except Exception: continue
             if k not in actual: actual[k]=float(v)
+
+        # A (forecast_run_id, target_time) pair only ever needs to be scored
+        # once - the forecast and the actual price it is compared against
+        # never change afterwards. Without this check, every run used to
+        # re-insert a brand new duplicate row (fresh score_run_id) for every
+        # already-known pair, letting price_forecast_scores grow without
+        # bound (see db_maintenance.py for the cleanup this required).
+        already={(fr,t) for fr,t in c.execute(
+            "SELECT forecast_run_id,target_time FROM price_forecast_scores")}
+
         n=0
         for fr,t,h,p10,p50,p90,base in c.execute("""SELECT forecast_run_id,target_time,horizon_days,p10_eur_mwh,p50_eur_mwh,p90_eur_mwh,baseline_eur_mwh
                                                      FROM price_forecasts_hourly"""):
+            if (fr,t) in already: continue
             try: k=_parse_dt(t).replace(minute=0,second=0,microsecond=0).isoformat()
             except Exception: continue
             if k not in actual: continue

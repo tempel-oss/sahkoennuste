@@ -112,6 +112,20 @@ try:
         step("FORECAST_CHANGES",False,build_changes)
 
     step("PRICE_FORECAST_SCORING",False,score_price_forecasts)
+
+    def dedupe_scores():
+        # Safety net: score_price_forecasts() no longer creates duplicate
+        # rows for an already-scored (forecast_run_id, target_time) pair
+        # (see db_maintenance.py for why this used to happen), so this is
+        # normally a no-op. Kept here so any stray duplicates - from an old
+        # database, a manual import, or a future regression - never make it
+        # into the ML training matrix.
+        from electricity_forecaster.db import connect as _connect_db
+        from electricity_forecaster.db_maintenance import dedupe_price_forecast_scores
+        with _connect_db() as _c:
+            return dedupe_price_forecast_scores(_c)
+    step("SCORES_DEDUPE",False,dedupe_scores)
+
     step("CHALLENGER_REGISTRY",False,register_challenger_from_artifact)
     step("ML_TRAINING_MATRIX",False,build_training_matrix)
     step("WALK_FORWARD_BASELINE",False,walk_forward_baseline_report)
