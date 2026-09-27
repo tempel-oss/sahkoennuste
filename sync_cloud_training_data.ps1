@@ -8,7 +8,8 @@
 
   Tarkoitettu ajettavaksi Windowsin Task Schedulerista (esim. ti+la), mutta
   toimii identtisesti myos kasin ajettuna (tuplaklikkaa
-  39_HAE_PILVIDATA_JA_KOULUTA.bat).
+  39_HAE_PILVIDATA_JA_KOULUTA.bat, tai aja se jo auki olevasta PowerShell-
+  ikkunasta, jolloin ikkuna ei sulkeudu automaattisesti ajon paatyttya).
 
   Edellytykset koneella:
     - GitHub CLI (gh) asennettuna ja kirjautuneena ("gh auth login" kertaalleen)
@@ -34,6 +35,23 @@ function Write-Log([string]$msg) {
     Write-Host $msg
 }
 
+# Windows PowerShell 5.1:n Start-Transcript ei aina poimi ulkoisten
+# ohjelmien (python.exe, git.exe, gh.exe) suoraa konsolitulostetta
+# luotettavasti - vain PowerShellin oman hostin kautta kirjoitetun
+# tekstin. Tama apufunktio ajaa ulkoisen komennon, ohjaa sen koko
+# tulosteen (stdout+stderr) PowerShellin oman pipelinen lapi ja
+# kirjoittaa sen Write-Host:lla, jotta se varmasti paatyy lokiin. Palauttaa
+# viimeisimman ulkoisen prosessin exit coden ($LASTEXITCODE), kuten
+# suora kutsukin tekisi.
+function Invoke-Logged {
+    param(
+        [Parameter(Mandatory=$true)][string]$Exe,
+        [Parameter(Mandatory=$true)][string[]]$Args
+    )
+    & $Exe @Args 2>&1 | ForEach-Object { Write-Host $_ }
+    return $LASTEXITCODE
+}
+
 $exitCode = 0
 Start-Transcript -Path $logPath -Append | Out-Null
 try {
@@ -53,8 +71,9 @@ try {
 
     Write-Log "`n--- 1/5: Kaynnistetaan cloud_export_training_data.yml ---"
     $before = [DateTimeOffset]::UtcNow
-    gh workflow run cloud_export_training_data.yml
-    if ($LASTEXITCODE -ne 0) { throw "Workflow'n kaynnistys epaonnistui (gh workflow run)." }
+    if ((Invoke-Logged -Exe "gh" -Args @("workflow", "run", "cloud_export_training_data.yml")) -ne 0) {
+        throw "Workflow'n kaynnistys epaonnistui (gh workflow run)."
+    }
 
     $runId = $null
     for ($i = 0; $i -lt 24; $i++) {
@@ -72,40 +91,47 @@ try {
     if (-not $runId) { throw "Uutta workflow-ajoa ei loytynyt 2 minuutin sisalla kaynnistyksesta." }
     Write-Log "Ajo loytyi (id $runId). Odotetaan valmistumista..."
 
-    gh run watch $runId --exit-status
-    if ($LASTEXITCODE -ne 0) { throw "Vienti-workflow epaonnistui (ajo $runId). Tarkista GitHub Actions -loki." }
+    if ((Invoke-Logged -Exe "gh" -Args @("run", "watch", "$runId", "--exit-status")) -ne 0) {
+        throw "Vienti-workflow epaonnistui (ajo $runId). Tarkista GitHub Actions -loki."
+    }
     Write-Log "[OK] Vienti-workflow valmis."
 
     Write-Log "`n--- 2/5: Ladataan vienti levylle ---"
     $downloadDir = Join-Path $RepoRoot "lataukset\cloud_sync_$stamp"
     New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
-    gh run download $runId -D $downloadDir
-    if ($LASTEXITCODE -ne 0) { throw "Artefaktin lataus epaonnistui (gh run download)." }
+    if ((Invoke-Logged -Exe "gh" -Args @("run", "download", "$runId", "-D", $downloadDir)) -ne 0) {
+        throw "Artefaktin lataus epaonnistui (gh run download)."
+    }
 
     $exportFile = Get-ChildItem -Path $downloadDir -Recurse -Filter "cloud_training_export.sqlite3" | Select-Object -First 1
     if (-not $exportFile) { throw "cloud_training_export.sqlite3 ei loytynyt ladatusta paketista ($downloadDir)." }
     Write-Log "Loytyi: $($exportFile.FullName)"
 
     Write-Log "`n--- 3/5: Tuodaan data paikalliseen kantaan (dedupe + merge + training_matrix) ---"
-    & $pythonExe "scripts\import_cloud_training_data.py" --export $exportFile.FullName
-    if ($LASTEXITCODE -ne 0) { throw "Tuontiskripti epaonnistui (import_cloud_training_data.py)." }
+    if ((Invoke-Logged -Exe $pythonExe -Args @("scripts\import_cloud_training_data.py", "--export", $exportFile.FullName)) -ne 0) {
+        throw "Tuontiskripti epaonnistui (import_cloud_training_data.py)."
+    }
 
     Write-Log "`n--- 4/5: Koulutetaan Challenger-malli uudelleen ---"
-    & $pythonExe "train_residual_challenger_v1.py"
-    if ($LASTEXITCODE -ne 0) { throw "Uudelleenkoulutus epaonnistui (train_residual_challenger_v1.py)." }
+    if ((Invoke-Logged -Exe $pythonExe -Args @("train_residual_challenger_v1.py")) -ne 0) {
+        throw "Uudelleenkoulutus epaonnistui (train_residual_challenger_v1.py)."
+    }
 
     Write-Log "`n--- 5/5: Committoidaan ja pushataan paivittyneet artefaktit ---"
-    git add "data/ml/challenger_residual_hgb_v1/"
+    Invoke-Logged -Exe "git" -Args @("add", "data/ml/challenger_residual_hgb_v1/") | Out-Null
     $changes = git status --porcelain -- "data/ml/challenger_residual_hgb_v1/"
     if ([string]::IsNullOrWhiteSpace($changes)) {
         Write-Log "Ei muutoksia committoitavaksi (malli/data oli jo ajan tasalla)."
     } else {
-        git commit -m "Automated sync: refresh training data + Challenger model from cloud ($stamp)"
-        if ($LASTEXITCODE -ne 0) { throw "git commit epaonnistui." }
-        git pull --no-rebase --no-edit
-        if ($LASTEXITCODE -ne 0) { throw "git pull epaonnistui / yhdistamiskonflikti - vaatii kasin selvittamisen." }
-        git push
-        if ($LASTEXITCODE -ne 0) { throw "git push epaonnistui." }
+        if ((Invoke-Logged -Exe "git" -Args @("commit", "-m", "Automated sync: refresh training data + Challenger model from cloud ($stamp)")) -ne 0) {
+            throw "git commit epaonnistui."
+        }
+        if ((Invoke-Logged -Exe "git" -Args @("pull", "--no-rebase", "--no-edit")) -ne 0) {
+            throw "git pull epaonnistui / yhdistamiskonflikti - vaatii kasin selvittamisen."
+        }
+        if ((Invoke-Logged -Exe "git" -Args @("push")) -ne 0) {
+            throw "git push epaonnistui."
+        }
         Write-Log "[OK] Muutokset pushattu GitHubiin."
     }
 
