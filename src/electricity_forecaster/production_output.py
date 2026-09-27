@@ -52,18 +52,24 @@ def _change_map(con,run_id,target_date):
     return {r["metric"]:{"old":_safe(r["old_value"],2),"new":_safe(r["new_value"],2),"delta":_safe(r["delta"],2)}
             for r in rows}
 
-def _three_hour_window(rows, cheapest=True):
+def _three_hour_window(rows, cheapest=True, min_points=3):
+    """Cheapest/priciest *complete* rolling 3h window (start on any observed
+    timestamp). min_points should reflect the data's native settlement
+    resolution (e.g. 12 for 15-min prices, 3 for hourly) - without it, a
+    window with only a handful of the ~12 quarter-hour points a real 3h span
+    now contains would still pass the old flat '<3' check and could get
+    reported as complete when it is actually mostly missing data."""
     if not rows: return None
     rr=sorted(rows,key=lambda x:x[0]); best=None
     for i in range(len(rr)):
         start=rr[i][0]; end=start+timedelta(hours=3)
         vals=[v for dt,v in rr if start <= dt < end]
-        if len(vals)<3: continue
+        if len(vals)<min_points: continue
         score=statistics.mean(vals)
         if best is None or (score < best[0] if cheapest else score > best[0]):
             best=(score,start,end)
     if not best: return None
-    return f"{best[1]:%H:%M}–{best[2]:%H:%M}"
+    return {"window":f"{best[1]:%H:%M}–{best[2]:%H:%M}","mean_eur_mwh":best[0]}
 
 def _published_prices(con, issue_slot, issue_time_utc=None):
     now_local=(issue_time_utc or datetime.now(timezone.utc)).astimezone(HELSINKI)
@@ -102,6 +108,12 @@ def _published_prices(con, issue_slot, issue_time_utc=None):
         steps=[b[0]-a[0] for a,b in zip(vals_sorted,vals_sorted[1:]) if b[0]>a[0]]
         step=min(steps) if steps else timedelta(hours=1)
         step_minutes=max(1,int(round(step.total_seconds()/60)))
+        # A "complete" 3h window needs roughly 3h worth of points at whatever the
+        # native resolution actually is (12 for 15-min prices, 3 for hourly) -
+        # see _three_hour_window's docstring for why this can't stay a flat 3.
+        min_points_3h=max(1,round(180/step_minutes))
+        cheap3=_three_hour_window(vals,True,min_points_3h)
+        exp3=_three_hour_window(vals,False,min_points_3h)
         min_detail=max_detail=None
         if vals_sorted:
             min_dt,min_v=min(vals_sorted,key=lambda x:x[1])
@@ -110,14 +122,25 @@ def _published_prices(con, issue_slot, issue_time_utc=None):
                         "window":f"{min_dt:%H:%M}–{(min_dt+step):%H:%M}","resolution_minutes":step_minutes}
             max_detail={"price_snt_kwh_vat":_safe(max_v*EURMWH_TO_SNTKWH_VAT),"valid_time":max_dt.isoformat(),
                         "window":f"{max_dt:%H:%M}–{(max_dt+step):%H:%M}","resolution_minutes":step_minutes}
+        # Full native-resolution series (not just the per-hour average used for
+        # the chart) - the consumer page needs this to work out, in the
+        # visitor's own browser, which single slot is "right now" (see
+        # _sw_script). A static page built once per issue slot but viewed at
+        # any later time can't bake that in server-side without it going stale
+        # the moment the clock moves past the build time - the same reason the
+        # hourly chart's "nyt" marker is drawn client-side rather than here.
+        resolution_prices=[{"valid_time":dt.isoformat(),"price_snt_kwh_vat":_safe(v*EURMWH_TO_SNTKWH_VAT)}
+                            for dt,v in vals_sorted]
         out.append({
           "date":d.isoformat(),"d_plus":idx,"value_type":"day_ahead","published":bool(prices),
           "mean_snt_kwh_vat":_safe(statistics.mean(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
           "min_snt_kwh_vat":_safe(min(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
           "max_snt_kwh_vat":_safe(max(prices)*EURMWH_TO_SNTKWH_VAT) if prices else None,
           "min_price_detail":min_detail,"max_price_detail":max_detail,"price_resolution_minutes":step_minutes,
-          "cheapest_3h":_three_hour_window(vals,True),"expensive_3h":_three_hour_window(vals,False),
+          "cheapest_3h":{"window":cheap3["window"],"mean_snt_kwh_vat":_safe(cheap3["mean_eur_mwh"]*EURMWH_TO_SNTKWH_VAT)} if cheap3 else None,
+          "expensive_3h":{"window":exp3["window"],"mean_snt_kwh_vat":_safe(exp3["mean_eur_mwh"]*EURMWH_TO_SNTKWH_VAT)} if exp3 else None,
           "cheapest_hour":cheapest_hour,"expensive_hour":expensive_hour,"hourly":hourly,
+          "resolution_prices":resolution_prices,
           "observations":len(prices),"price_run_issue_time":issue.get(d)
         })
     return out
@@ -662,6 +685,42 @@ def _sw_script():
   }
   positionNowMarkers();
   setInterval(positionNowMarkers,60000);
+
+  // "Tämän hetken pörssihinta" banner: each point below carries an absolute
+  // timestamp (t, with its UTC offset) and its settlement length in minutes
+  // (r), so - unlike the hourly chart's "nyt" marker, which has to match a
+  // specific calendar day/hour in Helsinki time - this can just compare
+  // real instants: no timezone reconstruction needed, it works the same
+  // regardless of the visitor's own device timezone.
+  function findCurrentPrice(points){
+    const now=new Date();
+    for(const pt of points){
+      const start=new Date(pt.t);
+      if(isNaN(start.getTime())) continue;
+      const end=new Date(start.getTime()+pt.r*60000);
+      if(now>=start && now<end) return {price:pt.v,start:start,end:end};
+    }
+    return null;
+  }
+  function renderNowPrice(){
+    const dataEl=document.getElementById("now-price-data");
+    const valueEl=document.getElementById("now-price-value");
+    const windowEl=document.getElementById("now-price-window");
+    if(!dataEl || !valueEl || !windowEl) return;
+    let points;
+    try{ points=JSON.parse(dataEl.textContent || "[]"); }catch(e){ return; }
+    const hit=findCurrentPrice(points);
+    if(!hit){
+      valueEl.textContent="—";
+      windowEl.textContent="Tämän hetken hintaa ei ole vielä saatavilla.";
+      return;
+    }
+    valueEl.textContent=hit.price.toFixed(2).replace(".",",");
+    const fmt=new Intl.DateTimeFormat("fi-FI",{timeZone:"Europe/Helsinki",hour:"2-digit",minute:"2-digit",hour12:false});
+    windowEl.textContent="klo "+fmt.format(hit.start)+"–"+fmt.format(hit.end);
+  }
+  renderNowPrice();
+  setInterval(renderNowPrice,60000);
 })();
 </script>''')
 
@@ -691,6 +750,10 @@ def _render_html(p):
             table_html=_hourly_table(hourly)
             res_note=(f'Kaavio: tuntien keskiarvohinnat ({res_min} min -pohjadatasta)' if res_min!=60
                        else 'Kaavio: tuntihinnat')
+            cheap3=x.get("cheapest_3h"); exp3=x.get("expensive_3h")
+            def _3h_line(win):
+                if not win: return "—"
+                return f'{win["window"]} · {_fmt_fi(win.get("mean_snt_kwh_vat"),2)}'
             pub_cards.append(f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:18px;padding:26px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:10px;">
           <div>
@@ -699,10 +762,10 @@ def _render_html(p):
           </div>
           {pill}
         </div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:58px;line-height:1;color:#1C1B17;text-align:center;margin:14px 0 8px;">{_fmt_fi(x.get("mean_snt_kwh_vat"),2)}<span style="font-size:17px;font-weight:500;color:#8A8577;margin-left:6px;">snt/kWh</span></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);text-align:center;margin:22px 0 18px;padding:14px 0;border-top:1px solid rgba(28,27,23,0.08);border-bottom:1px solid rgba(28,27,23,0.08);">
+        <div style="font-size:13px;font-weight:700;color:#8A8577;text-align:center;text-transform:uppercase;letter-spacing:0.04em;">Päivän keskihinta</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:58px;line-height:1;color:#1C1B17;text-align:center;margin:6px 0 8px;">{_fmt_fi(x.get("mean_snt_kwh_vat"),2)}<span style="font-size:17px;font-weight:500;color:#8A8577;margin-left:6px;">snt/kWh</span></div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);text-align:center;margin:22px 0 18px;padding:14px 0;border-top:1px solid rgba(28,27,23,0.08);border-bottom:1px solid rgba(28,27,23,0.08);">
           <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Min</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("min_snt_kwh_vat"),2)}</div>{_res_caption(min_d)}</div>
-          <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Keski</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("mean_snt_kwh_vat"),2)}</div></div>
           <div class="stat-col"><div style="font-size:13px;color:#8A8577;margin-bottom:4px;">Max</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;">{_fmt_fi(x.get("max_snt_kwh_vat"),2)}</div>{_res_caption(max_d)}</div>
         </div>
         <div style="font-size:12px;color:#8A8577;margin-bottom:6px;">{html.escape(res_note)}</div>
@@ -710,6 +773,8 @@ def _render_html(p):
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
           <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:#3A382F;min-width:0;"><span style="width:6px;height:6px;border-radius:50%;background:#0B4F49;flex:0 0 auto;"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Halvin tunti: <b style="font-family:'IBM Plex Mono',monospace;">{_hr_range(cheap_h)} · {_fmt_fi(cheap_h["price_snt_kwh_vat"] if cheap_h else None,2)}</b></span></div>
           <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:#3A382F;min-width:0;"><span style="width:6px;height:6px;border-radius:50%;background:#B03A2E;flex:0 0 auto;"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Kallein tunti: <b style="font-family:'IBM Plex Mono',monospace;">{_hr_range(exp_h)} · {_fmt_fi(exp_h["price_snt_kwh_vat"] if exp_h else None,2)}</b></span></div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:#3A382F;min-width:0;"><span style="width:6px;height:6px;border-radius:50%;background:#0B4F49;opacity:0.5;flex:0 0 auto;"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Halvin 3 h: <b style="font-family:'IBM Plex Mono',monospace;">{html.escape(_3h_line(cheap3))}</b></span></div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:#3A382F;min-width:0;"><span style="width:6px;height:6px;border-radius:50%;background:#B03A2E;opacity:0.5;flex:0 0 auto;"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Kallein 3 h: <b style="font-family:'IBM Plex Mono',monospace;">{html.escape(_3h_line(exp3))}</b></span></div>
         </div>
         {table_html}
       </div>''')
@@ -745,6 +810,22 @@ def _render_html(p):
       <td style="padding:11px 10px;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="color:{arrow_color};font-weight:700;">{arrow}</span> <span style="font-family:'IBM Plex Mono',monospace;">{change}</span></td>
       <td style="padding:11px 10px;border-bottom:1px solid rgba(28,27,23,0.06);">{risk_pill}</td></tr>''')
         mobile.append(f'''<div style="min-width:180px;background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:14px;padding:14px;flex:0 0 auto;"><b style="font-size:16px;">D+{d["d_plus"]}</b><br><span style="color:#8A8577;font-size:14px;">{_weekday_fi(d["date"])}</span><div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:28px;margin:8px 0;">{_fmt_fi(p50,2)}</div>{risk_pill}</div>''')
+
+    # Data for the shared "Tämän hetken pörssihinta" banner: the full native-
+    # resolution price series for every *published* day (today, and tomorrow
+    # once it's out), tagged with each point's settlement length. Rendered
+    # client-side (see _sw_script) for the same reason the hourly chart's
+    # "nyt" marker is - this static page is built once per issue slot but can
+    # be viewed hours later, so "now" can only be resolved correctly in the
+    # visitor's own browser at view time, never baked in here at build time.
+    now_price_points=[]
+    for x in p.get("published_day_ahead",[]):
+        if not x.get("published"): continue
+        res_min=x.get("price_resolution_minutes") or 60
+        for pt in x.get("resolution_prices") or []:
+            if pt.get("price_snt_kwh_vat") is None: continue
+            now_price_points.append({"t":pt["valid_time"],"v":pt["price_snt_kwh_vat"],"r":res_min})
+    now_price_data_json=json.dumps(now_price_points,ensure_ascii=False)
 
     para1,para2=_narrative_paragraphs(p)
     narrative_html=f'<p style="font-size:17px;line-height:1.65;color:#3A382F;margin:0 0 10px;">{html.escape(para1)}</p>'
@@ -797,6 +878,16 @@ def _render_html(p):
 
     <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Julkaistut day-ahead-hinnat</div>
     <h1 style="font-family:'Fraunces',serif;font-weight:600;font-size:27px;margin:0 0 18px;color:#1C1B17;">Sähkön hinta juuri nyt</h1>
+
+    <div id="now-price-banner" style="background:{accent};color:#F7F4EC;border-radius:16px;padding:22px 26px;margin-bottom:22px;">
+      <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;opacity:0.82;font-weight:700;margin-bottom:6px;">Tämän hetken pörssihinta</div>
+      <div style="font-family:'Fraunces',serif;font-weight:600;font-size:44px;line-height:1;">
+        <span id="now-price-value">—</span><span style="font-family:'IBM Plex Sans',sans-serif;font-size:16px;font-weight:500;opacity:0.85;margin-left:6px;">snt/kWh</span>
+      </div>
+      <div id="now-price-window" style="font-size:13.5px;opacity:0.82;margin-top:6px;">&nbsp;</div>
+    </div>
+    <script type="application/json" id="now-price-data">{now_price_data_json}</script>
+
     <div class="price-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:36px;">{"".join(pub_cards)}</div>
 
     <div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:18px;padding:26px 28px;margin-bottom:36px;">
