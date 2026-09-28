@@ -7,6 +7,17 @@ from .db import connect, init_db
 LOCS={x['name']:x for x in json.loads((ROOT/'config'/'weather_locations.json').read_text(encoding='utf-8'))['locations']}
 
 def hourkey(s): return s[:13]+':00:00'
+def _first_present(d, *keys):
+    # Like `d.get(keys[0]) or d.get(keys[1]) or ...` but treats an explicit
+    # 0.0 as a real, present value instead of falling through to the next
+    # key - Python's `or` treats 0.0 as falsy, so a genuinely zero hourly
+    # reading (solar at night, wind in a dead calm) was being silently
+    # replaced by the coarser same-day "daily" fallback series. See
+    # loydokset_ja_korjaukset.md section L.
+    for k in keys:
+        v = d.get(k)
+        if v is not None: return v
+    return None
 def wind_cf(v):
     # transparent generic turbine proxy; later learned against Fingrid actuals
     if v < 3: return 0.0
@@ -61,7 +72,7 @@ def build_features():
         for _,h,n,v,u,s in out: tmp[h][n]=v
         derived=[]
         for h,d in tmp.items():
-            load=d.get('consumption_forecast_mw') or d.get('consumption_forecast_daily_mw'); wind=d.get('wind_forecast_mw') or d.get('wind_forecast_daily_mw'); solar=d.get('solar_forecast_mw') or d.get('solar_forecast_daily_mw'); prod=d.get('production_forecast_mw')
+            load=_first_present(d,'consumption_forecast_mw','consumption_forecast_daily_mw'); wind=_first_present(d,'wind_forecast_mw','wind_forecast_daily_mw'); solar=_first_present(d,'solar_forecast_mw','solar_forecast_daily_mw'); prod=d.get('production_forecast_mw')
             if load is not None and wind is not None:
                 val=load-wind-(solar or 0); derived.append((fid,h,'residual_after_wind_solar_mw',val,'MW','fingrid'))
             if load is not None and prod is not None: derived.append((fid,h,'forecast_net_import_need_mw',load-prod,'MW','fingrid'))

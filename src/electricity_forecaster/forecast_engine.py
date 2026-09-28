@@ -300,8 +300,25 @@ def _calibrate_extended(features: dict[datetime, dict], wind_capacity: float | N
     return load_beta, (wind_a, wind_b), (solar_a, solar_b)
 
 
+def _first_present(d: dict, *keys: str) -> float | None:
+    """Like `d.get(keys[0]) or d.get(keys[1]) or ...` but treats an explicit
+    0.0 as a real, present value instead of falling through to the next key.
+
+    Python's `or` treats 0.0 as falsy, so a genuinely zero hourly reading -
+    solar at night, wind in a dead calm - was being silently replaced by the
+    same-day "daily" fallback series (a different, coarser Fingrid dataset;
+    see config/datasets.json) even when the primary hourly value was present
+    and correct. See loydokset_ja_korjaukset.md section L for the bug this
+    fixes and how it was found."""
+    for k in keys:
+        v = d.get(k)
+        if v is not None:
+            return v
+    return None
+
+
 def _extended_load(dt: datetime, d: dict, beta: list[float] | None, fallback: float) -> float:
-    direct = d.get("consumption_forecast_mw") or d.get("consumption_forecast_daily_mw")
+    direct = _first_present(d, "consumption_forecast_mw", "consumption_forecast_daily_mw")
     if direct is not None:
         return float(direct)
     temp = d.get("weather_load_temp_c")
@@ -331,7 +348,7 @@ def _wind_ensemble_estimate(d: dict, coeff: tuple[float, float], cap: float | No
 
 
 def _extended_wind(d: dict, coeff: tuple[float, float], cap: float | None, scenario: str = "p50") -> float:
-    direct = d.get("wind_forecast_mw") or d.get("wind_forecast_daily_mw")
+    direct = _first_present(d, "wind_forecast_mw", "wind_forecast_daily_mw")
     if direct is not None and scenario == "p50":
         return max(0.0, float(direct))
     ensemble_val = _wind_ensemble_estimate(d, coeff, cap, scenario)
@@ -355,7 +372,7 @@ def _extended_wind(d: dict, coeff: tuple[float, float], cap: float | None, scena
 
 
 def _extended_solar(d: dict, coeff: tuple[float, float], cap: float | None) -> float:
-    direct = d.get("solar_forecast_mw") or d.get("solar_forecast_daily_mw")
+    direct = _first_present(d, "solar_forecast_mw", "solar_forecast_daily_mw")
     if direct is not None:
         return max(0.0, float(direct))
     rad = d.get("weather_solar_wm2")
