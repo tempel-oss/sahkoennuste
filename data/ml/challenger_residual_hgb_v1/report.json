@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-09-29T15:03:48+00:00",
+  "generated_at_utc": "2026-09-29T18:32:14+00:00",
   "status": "shadow_only",
   "champion": {
     "model_name": "fundamental_baseline",
@@ -37,10 +37,10 @@
       "issue_slot_afternoon",
       "lead_hours"
     ],
-    "sklearn_version": "1.9.1"
+    "sklearn_version": "1.8.0"
   },
   "data": {
-    "matrix_path": "C:\\Users\\Teemu\\ChatGPT\\v1.4.1\\electricity_forecaster\\data\\ml\\training_matrix.csv",
+    "matrix_path": "/mnt/user-data/uploads/electricity_forecaster/data/ml/training_matrix.csv",
     "rows": 12536,
     "forecast_runs": 86,
     "issue_start": "2026-09-01T21:59:16+00:00",
@@ -65,12 +65,12 @@
         },
         "challenger": {
           "n": 2353,
-          "mae_eur_mwh": 72.6,
-          "rmse_eur_mwh": 88.156,
-          "median_ae_eur_mwh": 66.84,
-          "bias_eur_mwh": 17.038
+          "mae_eur_mwh": 52.071,
+          "rmse_eur_mwh": 72.077,
+          "median_ae_eur_mwh": 35.502,
+          "bias_eur_mwh": -26.718
         },
-        "mae_skill_pct": -46.26,
+        "mae_skill_pct": -4.9,
         "fold": 1,
         "train_rows": 3651,
         "train_runs": 41,
@@ -90,12 +90,12 @@
         },
         "challenger": {
           "n": 1689,
-          "mae_eur_mwh": 63.002,
-          "rmse_eur_mwh": 83.426,
-          "median_ae_eur_mwh": 51.946,
-          "bias_eur_mwh": -33.885
+          "mae_eur_mwh": 58.624,
+          "rmse_eur_mwh": 79.001,
+          "median_ae_eur_mwh": 42.483,
+          "bias_eur_mwh": -39.942
         },
-        "mae_skill_pct": -7.48,
+        "mae_skill_pct": -0.01,
         "fold": 2,
         "train_rows": 5613,
         "train_runs": 51,
@@ -115,12 +115,12 @@
         },
         "challenger": {
           "n": 729,
-          "mae_eur_mwh": 79.372,
-          "rmse_eur_mwh": 95.718,
-          "median_ae_eur_mwh": 65.569,
-          "bias_eur_mwh": 69.144
+          "mae_eur_mwh": 83.873,
+          "rmse_eur_mwh": 96.465,
+          "median_ae_eur_mwh": 74.68,
+          "bias_eur_mwh": 72.419
         },
-        "mae_skill_pct": -73.76,
+        "mae_skill_pct": -83.62,
         "fold": 3,
         "train_rows": 8157,
         "train_runs": 59,
@@ -140,12 +140,12 @@
         },
         "challenger": {
           "n": 512,
-          "mae_eur_mwh": 50.674,
-          "rmse_eur_mwh": 63.038,
-          "median_ae_eur_mwh": 40.004,
-          "bias_eur_mwh": 36.072
+          "mae_eur_mwh": 52.047,
+          "rmse_eur_mwh": 63.888,
+          "median_ae_eur_mwh": 38.507,
+          "bias_eur_mwh": 29.339
         },
-        "mae_skill_pct": 10.49,
+        "mae_skill_pct": 8.06,
         "fold": 4,
         "train_rows": 9477,
         "train_runs": 63,
@@ -165,12 +165,12 @@
         },
         "challenger": {
           "n": 272,
-          "mae_eur_mwh": 43.55,
-          "rmse_eur_mwh": 53.637,
-          "median_ae_eur_mwh": 36.147,
-          "bias_eur_mwh": 19.864
+          "mae_eur_mwh": 35.689,
+          "rmse_eur_mwh": 45.781,
+          "median_ae_eur_mwh": 25.831,
+          "bias_eur_mwh": 0.488
         },
-        "mae_skill_pct": 43.49,
+        "mae_skill_pct": 53.69,
         "fold": 5,
         "train_rows": 10053,
         "train_runs": 65,
@@ -191,12 +191,12 @@
       },
       "challenger": {
         "n": 5555,
-        "mae_eur_mwh": 67.127,
-        "rmse_eur_mwh": 84.365,
-        "median_ae_eur_mwh": 57.786,
-        "bias_eur_mwh": 10.285
+        "mae_eur_mwh": 57.433,
+        "rmse_eur_mwh": 76.146,
+        "median_ae_eur_mwh": 42.466,
+        "bias_eur_mwh": -11.23
       },
-      "mae_skill_pct": -24.69
+      "mae_skill_pct": -6.68
     },
     "by_horizon": {
       "1": {
@@ -210,12 +210,12 @@
         },
         "challenger": {
           "n": 408,
-          "mae_eur_mwh": 66.022,
-          "rmse_eur_mwh": 79.271,
-          "median_ae_eur_mwh": 58.528,
-          "bias_eur_mwh": 25.475
+          "mae_eur_mwh": 62.344,
+          "rmse_eur_mwh": 78.459,
+          "median_ae_eur_mwh": 51.437,
+          "bias_eur_mwh": 20.327
         },
-        "mae_skill_pct": -80.06
+        "mae_skill_pct": -70.03
       },
       "2": {
         "n": 963,
@@ -228,12 +228,12 @@
         },
         "challenger": {
           "n": 963,
-          "mae_eur_mwh": 70.321,
-          "rmse_eur_mwh": 86.259,
-          "median_ae_eur_mwh": 58.585,
-          "bias_eur_mwh": 32.729
+          "mae_eur_mwh": 60.211,
+          "rmse_eur_mwh": 78.49,
+          "median_ae_eur_mwh": 44.294,
+          "bias_eur_mwh": 19.497
         },
-        "mae_skill_pct": -67.97
+        "mae_skill_pct": -43.83
       },
       "3": {
         "n": 868,
@@ -246,12 +246,12 @@
         },
         "challenger": {
           "n": 868,
-          "mae_eur_mwh": 63.64,
-          "rmse_eur_mwh": 80.339,
-          "median_ae_eur_mwh": 51.193,
-          "bias_eur_mwh": 17.529
+          "mae_eur_mwh": 57.231,
+          "rmse_eur_mwh": 73.255,
+          "median_ae_eur_mwh": 43.08,
+          "bias_eur_mwh": 3.93
         },
-        "mae_skill_pct": -6.23
+        "mae_skill_pct": 4.47
       },
       "4": {
         "n": 657,
@@ -264,12 +264,12 @@
         },
         "challenger": {
           "n": 657,
-          "mae_eur_mwh": 61.129,
-          "rmse_eur_mwh": 79.988,
-          "median_ae_eur_mwh": 46.323,
-          "bias_eur_mwh": 2.306
+          "mae_eur_mwh": 52.993,
+          "rmse_eur_mwh": 69.262,
+          "median_ae_eur_mwh": 42.613,
+          "bias_eur_mwh": -9.881
         },
-        "mae_skill_pct": 15.53
+        "mae_skill_pct": 26.77
       },
       "5": {
         "n": 510,
@@ -282,12 +282,12 @@
         },
         "challenger": {
           "n": 510,
-          "mae_eur_mwh": 60.675,
-          "rmse_eur_mwh": 78.098,
-          "median_ae_eur_mwh": 52.57,
-          "bias_eur_mwh": -3.76
+          "mae_eur_mwh": 52.251,
+          "rmse_eur_mwh": 67.497,
+          "median_ae_eur_mwh": 44.927,
+          "bias_eur_mwh": -21.037
         },
-        "mae_skill_pct": 15.58
+        "mae_skill_pct": 27.3
       },
       "6": {
         "n": 458,
@@ -300,12 +300,12 @@
         },
         "challenger": {
           "n": 458,
-          "mae_eur_mwh": 61.89,
-          "rmse_eur_mwh": 80.583,
-          "median_ae_eur_mwh": 55.598,
-          "bias_eur_mwh": -13.007
+          "mae_eur_mwh": 64.383,
+          "rmse_eur_mwh": 83.554,
+          "median_ae_eur_mwh": 50.17,
+          "bias_eur_mwh": -42.312
         },
-        "mae_skill_pct": 13.99
+        "mae_skill_pct": 10.52
       },
       "7": {
         "n": 410,
@@ -318,12 +318,12 @@
         },
         "challenger": {
           "n": 410,
-          "mae_eur_mwh": 64.372,
-          "rmse_eur_mwh": 81.875,
-          "median_ae_eur_mwh": 57.294,
-          "bias_eur_mwh": -14.927
+          "mae_eur_mwh": 60.887,
+          "rmse_eur_mwh": 80.74,
+          "median_ae_eur_mwh": 43.014,
+          "bias_eur_mwh": -42.692
         },
-        "mae_skill_pct": -20.18
+        "mae_skill_pct": -13.68
       },
       "8": {
         "n": 362,
@@ -336,12 +336,12 @@
         },
         "challenger": {
           "n": 362,
-          "mae_eur_mwh": 65.764,
-          "rmse_eur_mwh": 80.335,
-          "median_ae_eur_mwh": 63.633,
-          "bias_eur_mwh": 5.614
+          "mae_eur_mwh": 54.668,
+          "rmse_eur_mwh": 77.426,
+          "median_ae_eur_mwh": 36.385,
+          "bias_eur_mwh": -36.503
         },
-        "mae_skill_pct": -62.89
+        "mae_skill_pct": -35.41
       },
       "9": {
         "n": 314,
@@ -354,12 +354,12 @@
         },
         "challenger": {
           "n": 314,
-          "mae_eur_mwh": 66.09,
-          "rmse_eur_mwh": 81.885,
-          "median_ae_eur_mwh": 61.441,
-          "bias_eur_mwh": 15.522
+          "mae_eur_mwh": 46.201,
+          "rmse_eur_mwh": 67.842,
+          "median_ae_eur_mwh": 29.648,
+          "bias_eur_mwh": -27.223
         },
-        "mae_skill_pct": -101.86
+        "mae_skill_pct": -41.11
       },
       "10": {
         "n": 266,
@@ -372,12 +372,12 @@
         },
         "challenger": {
           "n": 266,
-          "mae_eur_mwh": 78.234,
-          "rmse_eur_mwh": 96.035,
-          "median_ae_eur_mwh": 67.068,
-          "bias_eur_mwh": 19.531
+          "mae_eur_mwh": 47.388,
+          "rmse_eur_mwh": 69.95,
+          "median_ae_eur_mwh": 30.481,
+          "bias_eur_mwh": -19.996
         },
-        "mae_skill_pct": -94.85
+        "mae_skill_pct": -18.03
       },
       "11": {
         "n": 218,
@@ -390,12 +390,12 @@
         },
         "challenger": {
           "n": 218,
-          "mae_eur_mwh": 90.739,
-          "rmse_eur_mwh": 109.336,
-          "median_ae_eur_mwh": 80.601,
-          "bias_eur_mwh": 12.193
+          "mae_eur_mwh": 61.478,
+          "rmse_eur_mwh": 83.898,
+          "median_ae_eur_mwh": 42.075,
+          "bias_eur_mwh": -29.859
         },
-        "mae_skill_pct": -90.61
+        "mae_skill_pct": -29.14
       },
       "12": {
         "n": 121,
@@ -408,12 +408,12 @@
         },
         "challenger": {
           "n": 121,
-          "mae_eur_mwh": 99.181,
-          "rmse_eur_mwh": 117.436,
-          "median_ae_eur_mwh": 91.811,
-          "bias_eur_mwh": -18.766
+          "mae_eur_mwh": 80.349,
+          "rmse_eur_mwh": 104.041,
+          "median_ae_eur_mwh": 54.783,
+          "bias_eur_mwh": -42.719
         },
-        "mae_skill_pct": -78.79
+        "mae_skill_pct": -44.85
       }
     },
     "by_slot": {
@@ -428,12 +428,12 @@
         },
         "challenger": {
           "n": 2876,
-          "mae_eur_mwh": 68.944,
-          "rmse_eur_mwh": 86.134,
-          "median_ae_eur_mwh": 60.169,
-          "bias_eur_mwh": 13.799
+          "mae_eur_mwh": 58.837,
+          "rmse_eur_mwh": 77.412,
+          "median_ae_eur_mwh": 44.212,
+          "bias_eur_mwh": -8.227
         },
-        "mae_skill_pct": -20.73
+        "mae_skill_pct": -3.03
       },
       "morning": {
         "n": 2679,
@@ -446,76 +446,29 @@
         },
         "challenger": {
           "n": 2679,
-          "mae_eur_mwh": 65.176,
-          "rmse_eur_mwh": 82.424,
-          "median_ae_eur_mwh": 55.776,
-          "bias_eur_mwh": 6.514
+          "mae_eur_mwh": 55.925,
+          "rmse_eur_mwh": 74.762,
+          "median_ae_eur_mwh": 40.409,
+          "bias_eur_mwh": -14.453
         },
-        "mae_skill_pct": -29.52
+        "mae_skill_pct": -11.13
       }
     }
   },
   "historical_dataset": {
-    "path": "data\\processed\\v1_5_8\\horizon_asof_dual_d2_d12.parquet",
-    "exists": true,
+    "path": "data/processed/v1_5_8/horizon_asof_dual_d2_d12.parquet",
+    "exists": false,
     "used_for_residual_training": false,
-    "reason": "The dual-origin historical dataset is leakage-safe, but it does not contain the production fundamental_baseline 0.7.1 P50 forecast for each historical issue. Therefore it cannot supply the exact residual target actual-minus-production-P50.",
-    "rows": 879078,
-    "columns": [
-      "issue_time_local",
-      "issue_time_utc",
-      "issue_slot",
-      "issue_time_code",
-      "issue_hour_local",
-      "issue_minute_local",
-      "issue_hour_sin",
-      "issue_hour_cos",
-      "price_last_at_issue",
-      "price_mean_24h_at_issue",
-      "price_mean_7d_at_issue",
-      "price_std_7d_at_issue",
-      "price_min_7d_at_issue",
-      "price_max_7d_at_issue",
-      "consumption_last_at_issue",
-      "consumption_mean_24h_at_issue",
-      "consumption_mean_7d_at_issue",
-      "production_last_at_issue",
-      "production_mean_24h_at_issue",
-      "production_mean_7d_at_issue",
-      "wind_last_at_issue",
-      "wind_mean_24h_at_issue",
-      "wind_mean_7d_at_issue",
-      "wind_capacity_latest_at_issue",
-      "target_time_utc",
-      "horizon_day",
-      "horizon_hours",
-      "target_price_eur_mwh",
-      "target_hour_local",
-      "target_weekday_local",
-      "target_month_local",
-      "target_is_weekend",
-      "target_hour_sin",
-      "target_hour_cos",
-      "target_doy_sin",
-      "target_doy_cos",
-      "target_same_hour_price_lag_7d",
-      "target_same_hour_price_lag_7d_available",
-      "target_same_hour_price_lag_14d",
-      "target_same_hour_price_lag_14d_available",
-      "target_same_hour_price_lag_21d",
-      "target_same_hour_price_lag_21d_available",
-      "target_same_hour_price_lag_28d",
-      "target_same_hour_price_lag_28d_available"
-    ]
+    "reason": "The dual-origin historical dataset is leakage-safe, but it does not contain the production fundamental_baseline 0.7.1 P50 forecast for each historical issue. Therefore it cannot supply the exact residual target actual-minus-production-P50."
   },
   "promotion": {
     "automatic": false,
     "recommended_next_step": "Run in shadow mode and accumulate live Champion-vs-Challenger evidence before any promotion."
   },
   "artifacts": {
-    "model": "data\\ml\\challenger_residual_hgb_v1\\model.joblib",
-    "predictions": "data\\ml\\challenger_residual_hgb_v1\\walk_forward_predictions.csv",
-    "report_json": "data\\ml\\challenger_residual_hgb_v1\\report.json",
-    "report_html": "data\\ml\\challenger_residual_hgb_v1\\report.html"
+    "model": "data/ml/challenger_residual_hgb_v1/model.joblib",
+    "predictions": "data/ml/challenger_residual_hgb_v1/walk_forward_predictions.csv",
+    "report_json": "data/ml/challenger_residual_hgb_v1/report.json",
+    "report_html": "data/ml/challenger_residual_hgb_v1/report.html"
   }
 }

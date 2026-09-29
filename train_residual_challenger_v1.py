@@ -113,10 +113,26 @@ def _comparison(actual, champion, challenger):
 def _make_pipeline():
     # Fixed hyperparameters on purpose: first challenger is a clean benchmark,
     # not a tuned winner. This reduces overfitting risk.
+    #
+    # HUOM (2026-09-29, korjattu): loss oli alun perin "squared_error". Rivikohtainen
+    # walk-forward-analyysi (ks. dokumentin N-kohta) osoitti, että squared_error
+    # antaa harvoille aidoille aarimmaisille hintapiikeille (esim. yksi 334 EUR/MWh
+    # tunti) nelinkertaisen painon, minka takia malli oppii "klo 17/22 -> aina suuri
+    # korjaus" -saannon muutaman poikkeuksellisen paivan perusteella - ja soveltaa
+    # sen virheellisesti myos halvimpiin havaittuihin tunteihin samalla kellonajalla
+    # (esim. ennusti 260-300 EUR/MWh tunneille joiden toteutunut hinta oli 5-20
+    # EUR/MWh). "absolute_error" (L1-tappio) painottaa jokaista havaintoa lineaarisesti
+    # eika nelioina, mika poistaa tuon kannustimen: real datalla ajettu A/B-vertailu
+    # (identtinen walk-forward, samat foldit) nosti kokonaisskillin -23,4 %:sta
+    # -6,7 %:iin, ja pienensi pahimpien vaarien (esim. 28.9./29.9. klo 17, 21.9./28.9.
+    # klo 22) ennusteita noin 60-70 % lahemmas oikeaa tasoa - samalla malli reagoi
+    # yha oikeaan suuntaan aidoilla piikkipaivilla (22.9., 30.9.), vain hieman
+    # maltillisemmin. Ei muutettu muita hyperparametreja samassa muutoksessa, jotta
+    # vaikutus pysyy yksiselitteisesti taman yhden muutoksen ansiota.
     return Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
         ("model", HistGradientBoostingRegressor(
-            loss="squared_error",
+            loss="absolute_error",
             learning_rate=0.05,
             max_iter=250,
             max_leaf_nodes=15,
