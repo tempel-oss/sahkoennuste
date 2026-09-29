@@ -43,12 +43,38 @@ function Write-Log([string]$msg) {
 # kirjoittaa sen Write-Host:lla, jotta se varmasti paatyy lokiin. Palauttaa
 # viimeisimman ulkoisen prosessin exit coden ($LASTEXITCODE), kuten
 # suora kutsukin tekisi.
+#
+# HUOM (2026-09-29, korjattu): $Exe @Args 2>&1 muuttaa ulkoisen komennon
+# STDERR-rivit PowerShellin ErrorRecord-olioiksi samassa putkessa kuin
+# STDOUT. Windows PowerShell 5.1:ssa tama yhdessa $ErrorActionPreference
+# = "Stop":n kanssa muuttaa MINKA TAHANSA stderr-rivin - myos gitin
+# taysin normaalit, ei-virhetta-tarkoittavat ilmoitukset kuten "From
+# https://..." fetchin alussa - koko SKRIPTIN lopettavaksi virheeksi
+# (nakyy lokissa "TerminatingError(git.exe)"), VAIKKA itse ulkoinen
+# komento (esim. "git pull") suorittaisi tyonsa tayteen ja onnistuisi.
+# Tama katkaisi 2026-09-29 ensimmaisen itsenaisen ajastetun synkan
+# "git push"-vaiheen "git pull"-vaiheen jalkeen, jattaen valmiin
+# committin/mergen vain paikalliselle koneelle asti (ks. dokumentin N-
+# kohta). Korjaus: asetetaan $ErrorActionPreference paikallisesti
+# "Continue":ksi juuri ulkoisen komennon ajon/putken kasittelyn ajaksi,
+# jotta stderr-rivit vain tulostuvat (Write-Host) eivätkä koskaan
+# eskaloidu lopettavaksi virheeksi. Tama ei heikenna virheentunnistusta
+# miltaan osin, koska jokainen kutsupaikka tarkistaa jo erikseen
+# palautetun $LASTEXITCODE:n ja heittaa oman virheensa jos se ei ole 0 -
+# se on ja on aina ollut tuon todellisen onnistumisen/epaonnistumisen
+# ainoa luotettava lahde tassa skriptissa.
 function Invoke-Logged {
     param(
         [Parameter(Mandatory=$true)][string]$Exe,
         [Parameter(Mandatory=$true)][string[]]$Args
     )
-    & $Exe @Args 2>&1 | ForEach-Object { Write-Host $_ }
+    $previousEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $Exe @Args 2>&1 | ForEach-Object { Write-Host $_ }
+    } finally {
+        $ErrorActionPreference = $previousEap
+    }
     return $LASTEXITCODE
 }
 
