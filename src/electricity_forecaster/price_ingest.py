@@ -61,6 +61,21 @@ def ingest_prices(days_back=2, days_forward=1):
                 fetched += len(rows)
             except Exception as e:
                 status='degraded'; msg=(msg+'; '+day+': '+str(e)).strip('; ')
+        # HUOM (2026-09-30, korjattu, ks. dokumentin M2/P-kohta): jos JOKAINEN
+        # haettu paiva palautti HTTP 204 ("ei vielakaan julkaistua dataa" -
+        # kasitellaan yllaolevassa try-lohkossa "continue"-haarassa, ei except-
+        # haarassa), status pysyi ennen tata alkuarvossaan 'ok' vaikka fetched==0
+        # eika yhtaan rivia kirjoitettu kantaan - normaali "ei vielakaan
+        # julkaistu" -tilanne yhdelle paivalle ei erottunut lokeissa/
+        # price_runs.status:ssa siita etta Nord Poolin API olisi oikeasti poikki
+        # tavalla joka palauttaisi 204:n myos paiville joiden pitaisi jo olla
+        # julkaistuja. Merkitaan tama nyt erikseen 'no_data'-tilaksi (samaan
+        # tapaan kuin entsoe_ingest.py:n allow_no_data-mekanismi) - vain kun
+        # mikaan yksittainen paiva ei jo aiheuttanut 'degraded'-tilaa.
+        if fetched==0 and status=='ok':
+            status='no_data'
+            msg=(f'Ei yhtaan hintarivia haetuilta paivilta (days_back={days_back}, '
+                 f'days_forward={days_forward}) - kaikki paivat palauttivat "ei dataa" (HTTP 204).')
         c.execute('UPDATE price_runs SET status=?,message=? WHERE run_id=?',(status,msg,rid))
     print(f'[OK]' if fetched else '[VAROITUS]',f'Nord Pool: {fetched} hintarivia; status={status}')
     return fetched

@@ -12,7 +12,14 @@ def check(verbose=True):
     init_db(); now=datetime.now(timezone.utc); after_actual=(now-timedelta(hours=36)).isoformat(); after_fc=(now-timedelta(hours=2)).isoformat()
     issues=[]; info=[]
     with connect() as c:
-        fr=c.execute("SELECT run_id FROM forecast_runs WHERE source='fingrid' ORDER BY issue_time DESC LIMIT 1").fetchone(); fr=fr[0] if fr else None
+        # HUOM (2026-09-30, korjattu, ks. dokumentin M1/P-kohta): tama haki aiemmin
+        # AINA viimeisimman fingrid-ajon riippumatta sen iasta - jos automaatio oli
+        # ollut pysahdyksissa (ks. dokumentin H-kohta, 20 vrk:n aukko), tama palautti
+        # silti vanhan run_id:n ja koko CRITICAL_FORECAST-tarkistus raportoi
+        # harhaanjohtavasti "OK" vanhalla datalla, koska after_fc-muuttuja laskettiin
+        # mutta sita ei koskaan kaytetty tassa kyselyssa. Lisatty AND issue_time>=?
+        # samaan tapaan kuin CRITICAL_ACTUAL-haara kayttaa after_actual:ia.
+        fr=c.execute("SELECT run_id FROM forecast_runs WHERE source='fingrid' AND issue_time>=? ORDER BY issue_time DESC LIMIT 1",(after_fc,)).fetchone(); fr=fr[0] if fr else None
         for m in CRITICAL_FORECAST:
             n=c.execute('SELECT COUNT(*) FROM forecasts WHERE run_id=? AND metric=?',(fr,m)).fetchone()[0] if fr else 0
             info.append((m,n,'forecast')); 
