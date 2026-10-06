@@ -43,7 +43,7 @@ def _scheduled_slot(schedule: str) -> str | None:
     return None
 
 
-def selected_slot(event, schedule, now, requested_slot="", already_published=None):
+def selected_slot(event, schedule, now, requested_slot="", already_published=None, force_republish=False):
     local = now.astimezone(HELSINKI)
     slot = None
 
@@ -69,7 +69,7 @@ def selected_slot(event, schedule, now, requested_slot="", already_published=Non
     else:
         return None
 
-    if already_published == slot:
+    if already_published == slot and not force_republish:
         return None
     return slot
 
@@ -78,6 +78,7 @@ if __name__ == "__main__":
     event = os.getenv("GITHUB_EVENT_NAME", "")
     schedule = os.getenv("GITHUB_EVENT_SCHEDULE", "")
     requested = os.getenv("FORECAST_REQUESTED_SLOT", "")
+    force_republish = os.getenv("FORECAST_FORCE_REPUBLISH", "").strip().lower() in {"1", "true", "yes", "on"}
     now = datetime.now(timezone.utc)
     local = now.astimezone(HELSINKI)
     already = already_published_slot(STATUS_FILE, local.date())
@@ -85,12 +86,13 @@ if __name__ == "__main__":
         event, schedule, now,
         requested_slot=requested,
         already_published=already,
+        force_republish=force_republish,
     )
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
         f.write(f"run={'true' if slot else 'false'}\n")
         f.write(f"slot={slot or ''}\n")
     print(
         f"event={event}, schedule={schedule}, requested_slot={requested}, "
-        f"runner_helsinki={local.isoformat()}, slot={slot}, "
-        f"already_published_today={already}"
+        f"force_republish={force_republish}, runner_helsinki={local.isoformat()}, "
+        f"slot={slot}, already_published_today={already}"
     )
