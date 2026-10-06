@@ -3,11 +3,19 @@ name: Cloud Electricity Forecast
 
 on:
   workflow_dispatch:
+    inputs:
+      slot:
+        description: "Forecast issue slot"
+        required: true
+        type: choice
+        options:
+          - morning
+          - afternoon
   schedule:
-    - cron: "15 3 * * *"
-    - cron: "15 4 * * *"
-    - cron: "15 13 * * *"
-    - cron: "15 14 * * *"
+    - cron: "15 6 * * *"
+      timezone: "Europe/Helsinki"
+    - cron: "15 16 * * *"
+      timezone: "Europe/Helsinki"
 
 permissions:
   contents: write
@@ -30,6 +38,7 @@ jobs:
       - id: gate
         env:
           GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
+          FORECAST_REQUESTED_SLOT: ${{ inputs.slot }}
         run: python scripts/cloud_gate.py
 
   forecast:
