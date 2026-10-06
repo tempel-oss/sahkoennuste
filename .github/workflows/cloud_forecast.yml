@@ -115,10 +115,36 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f output/latest_forecast.json output/forecast_status.json
-          git diff --cached --quiet && exit 0
-          git commit -m "Update latest production forecast [skip ci]"
-          git push origin HEAD:main
+
+          # Keep the freshly generated production outputs outside the worktree
+          # while synchronising with main.  This avoids non-fast-forward failures
+          # if main changed while the forecast was running.
+          cp output/latest_forecast.json "$RUNNER_TEMP/latest_forecast.json"
+          cp output/forecast_status.json "$RUNNER_TEMP/forecast_status.json"
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp "$RUNNER_TEMP/latest_forecast.json" output/latest_forecast.json
+            cp "$RUNNER_TEMP/forecast_status.json" output/forecast_status.json
+            git add -f output/latest_forecast.json output/forecast_status.json
+
+            if git diff --cached --quiet; then
+              echo "Production output is already current on main."
+              break
+            fi
+
+            git commit -m "Update latest production forecast [skip ci]"
+            if git push origin HEAD:main; then
+              break
+            fi
+
+            echo "main changed during publish; retrying ($attempt/3)"
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Could not publish forecast after 3 synchronised attempts."
+              exit 1
+            fi
+          done
 
       - uses: actions/upload-pages-artifact@v3
         with:
