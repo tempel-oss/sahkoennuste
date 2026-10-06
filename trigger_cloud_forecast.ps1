@@ -22,8 +22,18 @@ virheeksi - sen takia Invoke-Logged asettaa ErrorActionPreferencen paikallisesti
 $LASTEXITCODE:iin.
 #>
 
+param(
+    [ValidateSet('morning','afternoon')]
+    [string]$Slot
+)
+
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
+
+if (-not $Slot) {
+    $now = Get-Date
+    if ($now.Hour -lt 12) { $Slot = 'morning' } else { $Slot = 'afternoon' }
+}
 Set-Location $root
 
 $ts = Get-Date -Format 'yyyyMMdd_HHmmss'
@@ -48,12 +58,12 @@ function Invoke-Logged {
 }
 
 try {
-    Write-Host "=== LAUKAISTAAN PILVIENNUSTE-WORKFLOW ($ts) ==="
-    $exit = Invoke-Logged -Exe 'gh' -Args @('workflow','run','cloud_forecast.yml','--ref','main')
+    Write-Host "=== LAUKAISTAAN PILVIENNUSTE-WORKFLOW ($ts), slot=$Slot ==="
+    $exit = Invoke-Logged -Exe 'gh' -Args @('workflow','run','cloud_forecast.yml','--ref','main','-f',"slot=$Slot")
     if ($exit -ne 0) {
         throw "gh workflow run epaonnistui (exit code $exit)"
     }
-    Write-Host "[OK] Workflow laukaistu onnistuneesti. (cloud_gate.py paattaa itse slotin ja ohittaa ajon, jos taman paivan slotti on jo julkaistu.)"
+    Write-Host "[OK] Workflow laukaistu onnistuneesti. (slot=$Slot; cloud_gate.py ohittaa ajon, jos taman paivan sama slotti on jo julkaistu.)"
     exit 0
 } catch {
     Write-Host "[VIRHE] $($_.Exception.Message)"
