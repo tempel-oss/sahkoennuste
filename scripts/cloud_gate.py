@@ -1,82 +1,96 @@
 from __future__ import annotations
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from zoneinfo import ZoneInfo
 import json, os
 from pathlib import Path
 
-STATUS_FILE = Path(__file__).resolve().parent.parent / 'output' / 'forecast_status.json'
+HELSINKI = ZoneInfo("Europe/Helsinki")
+STATUS_FILE = Path(__file__).resolve().parent.parent / "output" / "forecast_status.json"
+TARGETS = {"morning": (6, 15), "afternoon": (16, 15)}
+# GitHub documents that scheduled workflows may be delayed. A late backup cron
+# must never become a production forecast hours after its intended issue time.
+MAX_SCHEDULE_DELAY = timedelta(minutes=45)
 
 
 def already_published_slot(status_path: Path, today_helsinki: date) -> str | None:
-    """Return the issue_slot already published for the given Helsinki calendar
-    date according to the committed output/forecast_status.json, or None.
-
-    HUOM (ks. dokumentin Q-kohta): lisatty koska GitHubin oma schedule-cron on
-    alkanut laukeamaan jopa 4-7h myohassa (GitHubin oma, vahvistettu,
-    tunnettu, tama kirjoitushetkella korjaamaton infrastruktuuribugi - ei
-    mitaan tekemista tamam repon koodin kanssa). Tama vika yksinaan sai aikaan
-    sen etta "aamun" tai "iltapaivan" ennuste julkaistiin satunnaisena
-    ajankohtana (esim. klo 12:48) alkuperaisen klo 6:15/16:15 sijaan. Koska
-    korjaus lisaa rinnakkaisen, luotettavan paikallisen laukaisimen (Windows
-    Task Scheduler + "gh workflow run", ks. trigger_cloud_forecast.ps1) TAMAN
-    rikkinaisen cronin paalle (varalle, siina tapauksessa etta GitHub joskus
-    korjaa oman ajastimensa), pitaa estaa etta sama aamu-/iltapaivaslotti
-    julkaistaan kahdesti samana paivana - kerran ajallaan ulkoisesta
-    laukaisimesta klo 6:15/16:15, ja kerran myohemmin kun GitHubin oma
-    myohastynyt cron vihdoin laukeaa ja silti tasmaa paivan DST-tilaan.
-    """
     try:
-        data = json.loads(status_path.read_text(encoding='utf-8'))
+        data = json.loads(status_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    issue_time = data.get('forecast_issue_time')
-    issue_slot = data.get('issue_slot')
-    if not issue_time or not issue_slot:
+    issue_time = data.get("forecast_issue_time")
+    issue_slot = data.get("issue_slot")
+    if not issue_time or issue_slot not in TARGETS:
         return None
     try:
-        dt = datetime.fromisoformat(issue_time)
+        dt = datetime.fromisoformat(str(issue_time).replace("Z", "+00:00"))
     except ValueError:
         return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    published_date = dt.astimezone(ZoneInfo('Europe/Helsinki')).date()
-    if published_date == today_helsinki:
+    if dt.astimezone(HELSINKI).date() == today_helsinki:
         return issue_slot
     return None
 
 
-def selected_slot(event, schedule, now, already_published=None):
-    local = now.astimezone(ZoneInfo('Europe/Helsinki'))
+def _scheduled_slot(schedule: str) -> str | None:
+    # cloud_forecast.yml uses timezone: Europe/Helsinki, so github.event.schedule
+    # is the local cron expression itself.
+    s = schedule.strip()
+    if s == "15 6 * * *":
+        return "morning"
+    if s == "15 16 * * *":
+        return "afternoon"
+    return None
+
+
+def selected_slot(event, schedule, now, requested_slot="", already_published=None):
+    local = now.astimezone(HELSINKI)
     slot = None
-    if event == 'workflow_dispatch':
-        slot = 'morning' if local.hour < 16 or (local.hour == 16 and local.minute < 15) else 'afternoon'
-    elif event == 'schedule':
-        for candidate_slot, hour in [('morning', 6), ('afternoon', 16)]:
-            target = local.replace(hour=hour, minute=15, second=0, microsecond=0)
-            if schedule.strip() == f'15 {target.astimezone(timezone.utc).hour} * * *':
-                # A severely delayed morning event must not replace an afternoon forecast.
-                if candidate_slot == 'morning' and (local.hour, local.minute) >= (16, 15):
-                    return None
-                slot = candidate_slot
-                break
-    if slot is None:
+
+    if event == "workflow_dispatch":
+        requested_slot = requested_slot.strip().lower()
+        if requested_slot not in TARGETS:
+            return None
+        slot = requested_slot
+
+    elif event == "schedule":
+        slot = _scheduled_slot(schedule)
+        if slot is None:
+            return None
+        hour, minute = TARGETS[slot]
+        target = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        delay = local - target
+        # Reject early/mismatched and severely delayed cron deliveries. This is
+        # intentionally strict: a stale run is worse than a clearly missing run,
+        # because it can overwrite the correct issue slot and mislabel freshness.
+        if delay < timedelta(minutes=-5) or delay > MAX_SCHEDULE_DELAY:
+            return None
+
+    else:
         return None
-    # Idempotency guard (ks. yllaoleva HUOM): jos tama slotti on jo
-    # julkaistu tanaan (riippumatta siita, tuliko aiempi julkaisu tasta
-    # samasta tai eri tapahtumalahteesta), ei ajeta uudelleen.
-    if already_published is not None and slot == already_published:
+
+    if already_published == slot:
         return None
     return slot
 
 
-if __name__ == '__main__':
-    event = os.getenv('GITHUB_EVENT_NAME', '')
-    schedule = os.getenv('GITHUB_EVENT_SCHEDULE', '')
+if __name__ == "__main__":
+    event = os.getenv("GITHUB_EVENT_NAME", "")
+    schedule = os.getenv("GITHUB_EVENT_SCHEDULE", "")
+    requested = os.getenv("FORECAST_REQUESTED_SLOT", "")
     now = datetime.now(timezone.utc)
-    today_helsinki = now.astimezone(ZoneInfo('Europe/Helsinki')).date()
-    already = already_published_slot(STATUS_FILE, today_helsinki)
-    slot = selected_slot(event, schedule, now, already_published=already)
-    with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
+    local = now.astimezone(HELSINKI)
+    already = already_published_slot(STATUS_FILE, local.date())
+    slot = selected_slot(
+        event, schedule, now,
+        requested_slot=requested,
+        already_published=already,
+    )
+    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
         f.write(f"run={'true' if slot else 'false'}\n")
         f.write(f"slot={slot or ''}\n")
-    print(f'event={event}, schedule={schedule}, slot={slot}, already_published_today={already}')
+    print(
+        f"event={event}, schedule={schedule}, requested_slot={requested}, "
+        f"runner_helsinki={local.isoformat()}, slot={slot}, "
+        f"already_published_today={already}"
+    )
