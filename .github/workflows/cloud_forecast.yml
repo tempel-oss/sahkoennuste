@@ -17,10 +17,12 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: "15 6 * * *"
-      timezone: "Europe/Helsinki"
-    - cron: "15 16 * * *"
-      timezone: "Europe/Helsinki"
+    # GitHub Actions cron is UTC. Keep both EEST/EET candidates; cloud_gate.py
+    # accepts only the one that maps to 06:15 / 16:15 Europe/Helsinki.
+    - cron: "15 3 * * *"
+    - cron: "15 4 * * *"
+    - cron: "15 13 * * *"
+    - cron: "15 14 * * *"
 
 permissions:
   contents: write
