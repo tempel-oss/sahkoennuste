@@ -32,13 +32,26 @@ def already_published_slot(status_path: Path, today_helsinki: date) -> str | Non
     return None
 
 
-def _scheduled_slot(schedule: str) -> str | None:
-    # cloud_forecast.yml uses timezone: Europe/Helsinki, so github.event.schedule
-    # is the local cron expression itself.
+def _scheduled_slot(schedule: str, local_now: datetime) -> str | None:
+    # GitHub Actions cron expressions are evaluated in UTC. The workflow carries
+    # both EEST and EET candidates. Decide which UTC candidate is valid from
+    # Helsinki's actual UTC offset on the run date.
     s = schedule.strip()
-    if s == "15 6 * * *":
+    parts = s.split()
+    if len(parts) != 5 or parts[0] != "15":
+        return None
+    try:
+        utc_hour = int(parts[1])
+    except ValueError:
+        return None
+
+    offset_hours = int(local_now.utcoffset().total_seconds() // 3600)
+    valid_morning_utc = (6 - offset_hours) % 24
+    valid_afternoon_utc = (16 - offset_hours) % 24
+
+    if utc_hour == valid_morning_utc:
         return "morning"
-    if s == "15 16 * * *":
+    if utc_hour == valid_afternoon_utc:
         return "afternoon"
     return None
 
@@ -54,7 +67,7 @@ def selected_slot(event, schedule, now, requested_slot="", already_published=Non
         slot = requested_slot
 
     elif event == "schedule":
-        slot = _scheduled_slot(schedule)
+        slot = _scheduled_slot(schedule, local)
         if slot is None:
             return None
         hour, minute = TARGETS[slot]
