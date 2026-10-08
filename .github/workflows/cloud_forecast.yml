@@ -17,12 +17,14 @@ on:
         type: boolean
         default: false
   schedule:
-    # GitHub Actions cron is UTC. Keep both EEST/EET candidates; cloud_gate.py
-    # accepts only the one that maps to 06:15 / 16:15 Europe/Helsinki.
+    # UTC cron plus hourly recovery checks. The gate selects the current
+    # Helsinki slot and skips it only after successful publication.
     - cron: "15 3 * * *"
     - cron: "15 4 * * *"
     - cron: "15 13 * * *"
     - cron: "15 14 * * *"
+    # Recovery checks for delayed/dropped GitHub schedule deliveries.
+    - cron: "37 * * * *"
 
 permissions:
   contents: write
@@ -50,6 +52,7 @@ jobs:
         run: python scripts/cloud_gate.py
 
   forecast:
+    # A deliberately skipped duplicate is not a successful production run.
     timeout-minutes: 45
     needs: gate
     if: needs.gate.outputs.run == 'true'
