@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime, timezone, date, timedelta
+from datetime import datetime, timezone, date
 from zoneinfo import ZoneInfo
 import json, os
 from pathlib import Path
@@ -7,9 +7,7 @@ from pathlib import Path
 HELSINKI = ZoneInfo("Europe/Helsinki")
 STATUS_FILE = Path(__file__).resolve().parent.parent / "output" / "forecast_status.json"
 TARGETS = {"morning": (6, 15), "afternoon": (16, 15)}
-# GitHub documents that scheduled workflows may be delayed. A late backup cron
-# must never become a production forecast hours after its intended issue time.
-MAX_SCHEDULE_DELAY = timedelta(minutes=45)
+# Scheduled runs use the current Helsinki issue window, not delayed cron identity.
 
 
 def already_published_slot(status_path: Path, today_helsinki: date) -> str | None:
@@ -32,53 +30,24 @@ def already_published_slot(status_path: Path, today_helsinki: date) -> str | Non
     return None
 
 
-def _scheduled_slot(schedule: str, local_now: datetime) -> str | None:
-    # GitHub Actions cron expressions are evaluated in UTC. The workflow carries
-    # both EEST and EET candidates. Decide which UTC candidate is valid from
-    # Helsinki's actual UTC offset on the run date.
-    s = schedule.strip()
-    parts = s.split()
-    if len(parts) != 5 or parts[0] != "15":
-        return None
-    try:
-        utc_hour = int(parts[1])
-    except ValueError:
-        return None
-
-    offset_hours = int(local_now.utcoffset().total_seconds() // 3600)
-    valid_morning_utc = (6 - offset_hours) % 24
-    valid_afternoon_utc = (16 - offset_hours) % 24
-
-    if utc_hour == valid_morning_utc:
-        return "morning"
-    if utc_hour == valid_afternoon_utc:
-        return "afternoon"
-    return None
-
-
 def selected_slot(event, schedule, now, requested_slot="", already_published=None, force_republish=False):
     local = now.astimezone(HELSINKI)
-    slot = None
-
     if event == "workflow_dispatch":
-        requested_slot = requested_slot.strip().lower()
-        if requested_slot not in TARGETS:
+        slot = requested_slot.strip().lower()
+        if slot not in TARGETS:
             return None
-        slot = requested_slot
-
     elif event == "schedule":
-        slot = _scheduled_slot(schedule, local)
-        if slot is None:
+        # A delayed cron must never publish yesterday's or the wrong slot's
+        # forecast. Recover the CURRENT local slot if it has not been published.
+        # The periodic watchdog cron retries until the publication succeeds.
+        morning = local.replace(hour=6, minute=15, second=0, microsecond=0)
+        afternoon = local.replace(hour=16, minute=15, second=0, microsecond=0)
+        if local >= afternoon:
+            slot = "afternoon"
+        elif local >= morning:
+            slot = "morning"
+        else:
             return None
-        hour, minute = TARGETS[slot]
-        target = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        delay = local - target
-        # Reject early/mismatched and severely delayed cron deliveries. This is
-        # intentionally strict: a stale run is worse than a clearly missing run,
-        # because it can overwrite the correct issue slot and mislabel freshness.
-        if delay < timedelta(minutes=-5) or delay > MAX_SCHEDULE_DELAY:
-            return None
-
     else:
         return None
 
