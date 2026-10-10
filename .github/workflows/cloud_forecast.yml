@@ -17,18 +17,13 @@ on:
         type: boolean
         default: false
   schedule:
-    # UTC cron plus hourly recovery checks. The gate selects the current
-    # Helsinki slot and skips it only after successful publication.
-    - cron: "15 3 * * *"
-    - cron: "15 4 * * *"
-    - cron: "15 13 * * *"
-    - cron: "15 14 * * *"
-    # Multiple staggered retries in the morning/afternoon UTC windows.
-    # The Helsinki gate is idempotent: only the current unpublished slot runs.
-    # Multiple triggers reduce reliance on any single delayed/dropped cron event.
-    - cron: "7,22,37,52 3-8,13-18 * * *"
-    # Additional late recovery for runs delayed outside the issue windows.
-    - cron: "37 * * * *"
+    # Helsinki 06:15 / 16:15: UTC+3 in summer, UTC+2 in winter.
+    # Both UTC alternatives are needed for daylight saving time; the gate
+    # selects the current local slot and suppresses already published runs.
+    - cron: "15 3,4,13,14 * * *"
+    # One delayed-delivery recovery opportunity per local morning/afternoon.
+    # Avoid hourly/staggered cron storms that hide real failures as skipped.
+    - cron: "37 5,15 * * *"
 
 permissions:
   contents: write
