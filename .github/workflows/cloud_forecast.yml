@@ -23,7 +23,11 @@ on:
     - cron: "15 4 * * *"
     - cron: "15 13 * * *"
     - cron: "15 14 * * *"
-    # Recovery checks for delayed/dropped GitHub schedule deliveries.
+    # Multiple staggered retries in the morning/afternoon UTC windows.
+    # The Helsinki gate is idempotent: only the current unpublished slot runs.
+    # Multiple triggers reduce reliance on any single delayed/dropped cron event.
+    - cron: "7,22,37,52 3-8,13-18 * * *"
+    # Additional late recovery for runs delayed outside the issue windows.
     - cron: "37 * * * *"
 
 permissions:
