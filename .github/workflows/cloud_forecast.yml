@@ -17,10 +17,10 @@ on:
         type: boolean
         default: false
   schedule:
-    # Local Helsinki time; GitHub handles EET/EEST daylight saving.
-    - cron: "15 6,16 * * *"
-      timezone: "Europe/Helsinki"
-    # Retry if the target slot was not published.
+    # Primary 06:15 / 16:15 Europe/Helsinki triggers are managed by cron-job.org
+    # and call workflow_dispatch with an explicit morning / afternoon slot.
+    # Keep GitHub's 06:45 / 16:45 schedule as a best-effort backup only.
+    # The gate skips a slot already published by the external trigger.
     - cron: "45 6,16 * * *"
       timezone: "Europe/Helsinki"
 
