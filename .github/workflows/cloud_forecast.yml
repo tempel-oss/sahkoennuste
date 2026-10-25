@@ -17,13 +17,12 @@ on:
         type: boolean
         default: false
   schedule:
-    # Helsinki 06:15 / 16:15: UTC+3 in summer, UTC+2 in winter.
-    # Both UTC alternatives are needed for daylight saving time; the gate
-    # selects the current local slot and suppresses already published runs.
-    - cron: "15 3,4,13,14 * * *"
-    # One delayed-delivery recovery opportunity per local morning/afternoon.
-    # Avoid hourly/staggered cron storms that hide real failures as skipped.
-    - cron: "37 5,15 * * *"
+    # Local Helsinki time; GitHub handles EET/EEST daylight saving.
+    - cron: "15 6,16 * * *"
+      timezone: "Europe/Helsinki"
+    # Retry if the target slot was not published.
+    - cron: "45 6,16 * * *"
+      timezone: "Europe/Helsinki"
 
 permissions:
   contents: write
