@@ -168,6 +168,21 @@ class ProspectiveTests(unittest.TestCase):
 
 
 class ProductionIntegrationTests(unittest.TestCase):
+    def test_missing_ml_dependency_is_recorded_without_hiding_the_gap(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with patch.object(db,'DB_PATH',Path(temp)/'database.sqlite3'):
+                db.init_db()
+                with db.connect() as c:
+                    issue=pd.Timestamp.now(tz='UTC')
+                    add_run(c,'failed-collection',issue,[issue+pd.Timedelta(days=2)])
+                with patch.object(shadow,'capture',side_effect=ImportError('ML dependency missing')):
+                    with self.assertRaises(RuntimeError):
+                        shadow.collect_current('failed-collection')
+                with db.connect() as c:
+                    r=shadow.summary(c)
+                    self.assertEqual(r['status'],'degraded')
+                    self.assertEqual(r['collection_status']['not_collected'],1)
+
     def test_generation_and_rendering_use_saved_origin_even_if_environment_changes(self):
         from electricity_forecaster import forecast_engine as engine, production_output as output
         class Clock(datetime):

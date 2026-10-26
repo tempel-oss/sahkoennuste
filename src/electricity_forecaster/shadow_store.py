@@ -226,9 +226,22 @@ def collect_current(run_id):
     from .config import ROOT
     from .db import connect, init_db
     init_db()
-    spec = json.loads((ROOT / 'config/challenger_v2.json').read_text(encoding='utf-8'))
     with connect() as conn:
-        result = capture(conn, run_id, spec)
+        try:
+            spec = json.loads((ROOT / 'config/challenger_v2.json').read_text(encoding='utf-8'))
+            result = capture(conn, run_id, spec)
+        except Exception as exc:
+            # Also record failures before capture starts (missing ML packages,
+            # unreadable configuration). Publication can still show the gap.
+            ensure_shadow_schema(conn)
+            meta = _run_row(conn, run_id)
+            message = f'{type(exc).__name__}: {exc}'
+            conn.execute('''INSERT OR IGNORE INTO shadow_runs
+                (forecast_run_id,issue_time,issue_slot,issue_slot_source,recorded_at_utc,status,message)
+                VALUES(?,?,?,?,?,'not_collected',?)''',
+                (run_id, meta['issue_time'], meta.get('issue_slot'), meta.get('issue_slot_source'),
+                 _now().isoformat(), message))
+            result = {'status': 'not_collected', 'message': message}
     if result['status'] != 'recorded':
         raise RuntimeError('Shadow not collected: ' + result.get('message', result['status']))
     return result
