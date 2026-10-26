@@ -4,6 +4,18 @@ on:
   push:
     paths:
       - '.github/workflows/challenger_v2.yml'
+      - 'src/electricity_forecaster/challenger_v2.py'
+      - 'src/electricity_forecaster/shadow_store.py'
+      - 'src/electricity_forecaster/issue_slots.py'
+      - 'src/electricity_forecaster/db.py'
+      - 'src/electricity_forecaster/forecast_engine.py'
+      - 'src/electricity_forecaster/production_output.py'
+      - 'scripts/production_runner.py'
+      - 'research/challenger_v2_research.py'
+      - 'research/validate_shadow_v2.py'
+      - 'config/challenger_v2.json'
+      - 'requirements-challenger-v2.txt'
+      - 'tests/**'
 permissions:
   contents: read
 jobs:
@@ -38,7 +50,9 @@ jobs:
           MATCHED_CACHE: ${{ steps.restore.outputs.cache-matched-key }}
         run: |
           python research/challenger_v2_research.py | tee research_v2_summary.log
-          python research/validate_shadow_v2.py | tee research_v2_smoke.log
+          selection="research_results/challenger_v2/selection.json"
+          if [ -f config/challenger_v2.json ]; then selection="config/challenger_v2.json"; fi
+          python research/validate_shadow_v2.py --selection "$selection" | tee research_v2_smoke.log
           cat research_results/challenger_v2/summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Preserve aggregate reports and frozen selection
         uses: actions/upload-artifact@v4

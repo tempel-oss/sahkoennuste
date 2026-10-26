@@ -205,6 +205,12 @@ def summary(conn, now=None):
     for field, key in [('horizon_days', 'by_horizon'), ('issue_slot', 'by_slot'), ('spec_sha256', 'by_spec')]:
         for value in sorted({str(r[field]) for r in rows}):
             result[key][value] = _comparison([r for r in rows if str(r[field]) == value])
+    last = conn.execute('SELECT forecast_run_id,status,message,recorded_at_utc FROM shadow_runs ORDER BY recorded_at_utc DESC LIMIT 1').fetchone()
+    result['latest_collection'] = dict(last) if last else None
+    if last is None:
+        result['status'] = 'not_started'
+    elif last['status'] != 'recorded':
+        result['status'] = 'degraded'
     first = conn.execute("SELECT MIN(recorded_at_utc) FROM shadow_runs WHERE status='recorded'").fetchone()[0]
     result['first_recorded_at_utc'] = first
     days = (_now(now) - datetime.fromisoformat(first)).total_seconds()/86400 if first else 0

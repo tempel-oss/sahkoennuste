@@ -944,7 +944,8 @@ def _render_diagnostics_html(p):
     from the consumer page so day-to-day users aren't shown ML-readiness internals."""
     live=p.get("shadow_comparison",{}) or {}
     lm=live.get("overall",{}) or {}
-    labels={"collecting":"Näyttöä kerätään", "unavailable":"Seurannan tiedot puuttuvat"}
+    labels={"collecting":"Näyttöä kerätään", "unavailable":"Seurannan tiedot puuttuvat",
+            "not_started":"Ensimmäistä rinnakkaista ennustetta odotetaan", "degraded":"Rinnakkaistallennuksessa on puute"}
     shadow_html=f'''<section style="background:white;border:1px solid #dce5df;border-radius:16px;padding:22px;margin-bottom:28px;">
       <h2>Challenger v0.2 — rinnakkainen seuranta</h2>
       <p>{html.escape(labels.get(live.get("status"),str(live.get("status","Ei vielä tietoja"))))}.
@@ -954,6 +955,7 @@ def _render_diagnostics_html(p):
       <p>Champion MAE: {_fmt_fi(lm.get("champion_mae_eur_mwh"),2)} EUR/MWh ·
       Challenger MAE: {_fmt_fi(lm.get("challenger_mae_eur_mwh"),2)} EUR/MWh ·
       Parannus: {_fmt_fi(lm.get("mae_skill_pct"),2)} %</p>
+      <p>Tallentamatta jääneitä ajoja: {live.get("collection_status",{}).get("not_collected",0)}.</p>
       <p>Havaintopäiviä: {live.get("observed_days",0)} / 28.
       Tuotantoon siirtyminen vaatii erillisen arvioinnin; mallia ei vaihdeta automaattisesti.</p>
     </section>'''

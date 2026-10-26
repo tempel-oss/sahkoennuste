@@ -83,3 +83,22 @@ dependent. Review MAE, RMSE, bias, temporal stability and failures manually.
 To stop collecting without changing the Champion, set `enabled` false in the
 configuration. Do not backfill old origins. A new specification must retain a
 separate hash and a new forward observation period.
+
+## Frozen 26 October 2026 selection
+
+Validation run: https://github.com/tempel-oss/sahkoennuste/actions/runs/40373743943
+
+The development folds selected `hgb_robust_025` (development MAE 36.5165 versus
+Champion 37.0039 EUR/MWh). Its cap is at most 7.5 EUR/MWh after the 0.25 weight.
+On the historical holdout (24 origins, 284 distinct target hours), Champion MAE
+was 23.4521 and the selected v0.2 MAE was 23.9820 EUR/MWh (-2.259% skill).
+It is therefore deployed ONLY for shadow evidence. The fact that another
+candidate happened to do better on this holdout was not used to change the
+selection. The full aggregate report is in
+`research_reports/challenger_v02_2026-10-26.json`.
+
+The observed overcorrection was not explained by missing features (all 24
+feature missing fractions were zero in this dataset). On holdout the full HGB
+reference added 27.101 EUR/MWh on average while the required correction averaged
+-6.2531. The selected bounded model added 3.9795 instead. This diagnoses a
+correction/market-regime mismatch, not a proven causal explanation of its origin.

@@ -150,6 +150,7 @@ class ProspectiveTests(unittest.TestCase):
         result=shadow.capture(self.c,'live',spec(),now=datetime(2026,2,2,tzinfo=timezone.utc))
         self.assertEqual(result['status'],'not_collected')
         self.assertIn('hindsight',result['message'])
+        self.assertEqual(shadow.summary(self.c,now=datetime(2026,2,2,tzinfo=timezone.utc))['status'],'degraded')
         self.assertEqual(self.c.execute('SELECT COUNT(*) FROM shadow_forecasts').fetchone()[0],0)
 
     def test_later_import_of_previously_published_price_is_not_prospective(self):
