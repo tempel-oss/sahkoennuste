@@ -102,16 +102,25 @@ try:
 
     forecast_ok=False
     publish_ok=False
+    forecast_result=None
     if quality_ok:
-        forecast_ok,_=step("PRICE_FORECAST",True,make_forecast)
+        forecast_ok,forecast_result=step("PRICE_FORECAST",True,make_forecast)
     else:
         print("\n[OHITETTU] PRICE_FORECAST: kriittista dataa puuttuu.")
 
     if forecast_ok:
+        def capture_shadow():
+            from electricity_forecaster.shadow_store import collect_current
+            return collect_current(forecast_result[0])
+        step("CHALLENGER_SHADOW_CAPTURE",False,capture_shadow)
         step("DIAGNOSTICS",False,build_diagnostics)
         step("FORECAST_CHANGES",False,build_changes)
 
     step("PRICE_FORECAST_SCORING",False,score_price_forecasts)
+    def score_shadow():
+        from electricity_forecaster.shadow_store import score_and_report
+        return score_and_report()
+    step("CHALLENGER_SHADOW_SCORING",False,score_shadow)
 
     def dedupe_scores():
         # Safety net: score_price_forecasts() no longer creates duplicate

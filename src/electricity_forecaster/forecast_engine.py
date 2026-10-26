@@ -521,10 +521,11 @@ def make_forecast() -> tuple[str, int]:
 
         quality = "fundamental_v0.7_no_historical_training"
         c.execute("""INSERT INTO price_forecast_runs
-                     (forecast_run_id,issue_time,model_name,model_version,feature_run_id,status,data_quality,notes)
-                     VALUES (?,?,?,?,?,?,?,?)""",
+                     (forecast_run_id,issue_time,model_name,model_version,feature_run_id,status,data_quality,notes,issue_slot,issue_slot_source)
+                     VALUES (?,?,?,?,?,?,?,?,?,?)""",
                   (run_id, now_utc.isoformat(), MODEL_NAME, MODEL_VERSION, feature_run_id, "ok", quality,
-                   "First archived fundamental forecast. Not a trained ML/Champion model."))
+                   "First archived fundamental forecast. Not a trained ML/Champion model.",
+                   issue_slot, "explicit" if os.getenv("FORECAST_ISSUE_SLOT", "").strip().lower() in {"morning", "afternoon"} else "clock_fallback"))
         c.executemany("""INSERT INTO price_forecasts_hourly
                          (forecast_run_id,target_time,horizon_days,p10_eur_mwh,p50_eur_mwh,p90_eur_mwh,baseline_eur_mwh,
                           load_est_mw,wind_est_mw,solar_est_mw,net_load_est_mw,drivers_json)
