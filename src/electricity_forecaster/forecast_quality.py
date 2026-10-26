@@ -63,7 +63,7 @@ def build_training_matrix():
     with connect() as c:
         c.row_factory=sqlite3.Row
         rows=c.execute("""SELECT s.forecast_run_id,r.issue_time,s.target_time,s.horizon_days,
-                                 r.model_name,r.model_version,
+                                 r.model_name,r.model_version,r.issue_slot,r.issue_slot_source,
                                  f.p10_eur_mwh,f.p50_eur_mwh,f.p90_eur_mwh,f.baseline_eur_mwh,
                                  f.load_est_mw,f.wind_est_mw,f.solar_est_mw,f.net_load_est_mw,
                                  s.actual_eur_mwh,s.error_eur_mwh,s.abs_error_eur_mwh,s.inside_p10_p90
@@ -72,7 +72,7 @@ def build_training_matrix():
                             ON f.forecast_run_id=s.forecast_run_id AND f.target_time=s.target_time
                           JOIN price_forecast_runs r ON r.forecast_run_id=s.forecast_run_id
                           ORDER BY r.issue_time,s.target_time""").fetchall()
-    fields=["forecast_run_id","issue_time","target_time","horizon_days","model_name","model_version",
+    fields=["forecast_run_id","issue_time","target_time","horizon_days","model_name","model_version","issue_slot","issue_slot_source",
             "p10_eur_mwh","p50_eur_mwh","p90_eur_mwh","baseline_eur_mwh","load_est_mw",
             "wind_est_mw","solar_est_mw","net_load_est_mw","actual_eur_mwh","error_eur_mwh",
             "abs_error_eur_mwh","inside_p10_p90"]

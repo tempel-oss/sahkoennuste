@@ -1,0 +1,51 @@
+name: Challenger v0.2 validation
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/challenger_v2.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install reproducible ML dependencies
+        run: python -m pip install -r requirements-challenger-v2.txt
+      - name: Verify leakage controls and append-only shadow capture
+        run: python -m unittest discover -s tests -v
+      - name: Verify original Challenger regression
+        run: python test_synthetic.py
+      - uses: actions/cache/restore@v4
+        id: restore
+        with:
+          path: data/electricity_forecaster.sqlite3
+          key: challenger-v2-validation-${{ github.run_id }}
+          restore-keys: |
+            forecast-db-
+          fail-on-cache-miss: true
+      - name: Evaluate on disposable cloud database copy
+        shell: bash
+        env:
+          MATCHED_CACHE: ${{ steps.restore.outputs.cache-matched-key }}
+        run: |
+          python research/challenger_v2_research.py | tee research_v2_summary.log
+          python research/validate_shadow_v2.py | tee research_v2_smoke.log
+          cat research_results/challenger_v2/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve aggregate reports and frozen selection
+        uses: actions/upload-artifact@v4
+        with:
+          name: challenger-v02-validation-${{ github.run_id }}
+          path: |
+            research_results/challenger_v2/
+            research_v2_summary.log
+            research_v2_smoke.log
+          retention-days: 90

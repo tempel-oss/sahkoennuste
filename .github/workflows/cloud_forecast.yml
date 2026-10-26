@@ -67,6 +67,10 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install shadow model dependencies
+        continue-on-error: true
+        run: python -m pip install -r requirements-challenger-v2.txt
+
       - name: Restore SQLite history
         uses: actions/cache/restore@v4
         with:

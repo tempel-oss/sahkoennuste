@@ -291,3 +291,5 @@ def connect() -> sqlite3.Connection:
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        from .issue_slots import migrate_issue_slots
+        migrate_issue_slots(conn)

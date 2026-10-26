@@ -4,8 +4,9 @@ import json, sqlite3, html, math, statistics
 from datetime import datetime, timezone, timedelta
 from .config import ROOT, EUR_MWH_TO_SNT_KWH_VAT
 from .db import connect, init_db
-from .forecast_engine import HELSINKI, resolve_issue_slot
+from .forecast_engine import HELSINKI
 from .model_registry import model_status
+from .shadow_store import safe_current_summary
 from .forecast_quality import quality_summary
 
 # Canonical VAT definition now lives in config.py (see the note there); re-exported
@@ -33,7 +34,7 @@ def _parse_dt(s):
 
 def _latest_run(con):
     return con.execute('''SELECT forecast_run_id,issue_time,model_name,model_version,feature_run_id,
-             data_quality,notes FROM price_forecast_runs WHERE status='ok'
+             data_quality,notes,issue_slot,issue_slot_source FROM price_forecast_runs WHERE status='ok'
              ORDER BY issue_time DESC LIMIT 1''').fetchone()
 
 def _previous_run(con,current_id):
@@ -179,7 +180,10 @@ def build_latest_outputs():
         con.close(); raise RuntimeError("Onnistunutta hintaennusteajoa ei loydy.")
     run_id=meta["forecast_run_id"]; prev=_previous_run(con,run_id)
     issue_dt=_parse_dt(meta["issue_time"])
-    issue_slot=resolve_issue_slot(issue_dt)
+    issue_slot=meta["issue_slot"]
+    if issue_slot not in {"morning", "afternoon"}:
+        con.close()
+        raise RuntimeError("Forecast origin missing; refusing to infer it from execution time")
     rows=con.execute('''SELECT target_date,horizon_days,p10_eur_mwh,p50_eur_mwh,p90_eur_mwh,
              baseline_eur_mwh,min_p50_eur_mwh,max_p50_eur_mwh,
              cheapest_3h,expensive_3h,risk_level,drivers_json
@@ -205,8 +209,10 @@ def build_latest_outputs():
       "schema_version":"1.4",
       "generated_at_utc":datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
       "forecast_run_id":run_id,"forecast_issue_time":meta["issue_time"],"issue_slot":issue_slot,
+      "issue_slot_source":meta["issue_slot_source"],
       "model":{"name":meta["model_name"],"version":meta["model_version"],
                "trained_ml":meta["model_name"]!="fundamental_baseline"},
+      "shadow_comparison":safe_current_summary(),
       "model_status":model_status(),"forecast_quality":quality_summary(),"previous_forecast_run_id":prev["forecast_run_id"] if prev else None,
       "data_quality":meta["data_quality"],"freshness":_freshness(con),
       "published_day_ahead":_published_prices(con,issue_slot,issue_dt),"days":days
@@ -936,6 +942,21 @@ def _render_diagnostics_html(p):
     """Diagnostics page ('Diagnostiikka'): model quality, Champion/Challenger status,
     readiness gates, raw background factors and upstream data freshness — kept separate
     from the consumer page so day-to-day users aren't shown ML-readiness internals."""
+    live=p.get("shadow_comparison",{}) or {}
+    lm=live.get("overall",{}) or {}
+    labels={"collecting":"Näyttöä kerätään", "unavailable":"Seurannan tiedot puuttuvat"}
+    shadow_html=f'''<section style="background:white;border:1px solid #dce5df;border-radius:16px;padding:22px;margin-bottom:28px;">
+      <h2>Challenger v0.2 — rinnakkainen seuranta</h2>
+      <p>{html.escape(labels.get(live.get("status"),str(live.get("status","Ei vielä tietoja"))))}.
+      Tuotantoennusteen tekee edelleen champion. Historiallinen testi ja tämä tuleva seuranta ovat erillisiä.</p>
+      <p>Tallennettuja ajoja: {live.get("collection_status",{}).get("recorded",0)} ·
+      Pisteytettyjä ajoja: {lm.get("forecast_runs",0)} · Eri kohdetunteja: {lm.get("unique_target_hours",0)}</p>
+      <p>Champion MAE: {_fmt_fi(lm.get("champion_mae_eur_mwh"),2)} EUR/MWh ·
+      Challenger MAE: {_fmt_fi(lm.get("challenger_mae_eur_mwh"),2)} EUR/MWh ·
+      Parannus: {_fmt_fi(lm.get("mae_skill_pct"),2)} %</p>
+      <p>Havaintopäiviä: {live.get("observed_days",0)} / 28.
+      Tuotantoon siirtyminen vaatii erillisen arvioinnin; mallia ei vaihdeta automaattisesti.</p>
+    </section>'''
     accent="#0B4F49"
     ms=p.get("model_status",{}) or {}
     ev=ms.get("evaluation",{}) or {}
@@ -1025,7 +1046,7 @@ def _render_diagnostics_html(p):
         if chall.get("walk_forward_issue_start") and chall.get("walk_forward_issue_end"):
             c_range=f' ({str(chall["walk_forward_issue_start"])[:10]}–{str(chall["walk_forward_issue_end"])[:10]})'
         challenger_html=f'''<div style="background:#FFFFFF;border:1px solid rgba(28,27,23,0.09);border-radius:16px;padding:6px 22px;margin-bottom:36px;">
-      <div style="display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="font-size:15.5px;color:#3A382F;flex:1;">Challenger-malli</span><b style="font-family:'IBM Plex Mono',monospace;font-size:15.5px;">{html.escape(str(chall.get("name","—")))} {html.escape(str(chall.get("version","")))}</b></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="font-size:15.5px;color:#3A382F;flex:1;">Challenger v0.1 — historiallinen testi</span><b style="font-family:'IBM Plex Mono',monospace;font-size:15.5px;">{html.escape(str(chall.get("name","—")))} {html.escape(str(chall.get("version","")))}</b></div>
       <div style="display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="font-size:15.5px;color:#3A382F;flex:1;">Walk-forward-otos</span><b style="font-family:'IBM Plex Mono',monospace;font-size:15.5px;">{c_n if c_n is not None else "—"} tuntia{html.escape(c_range)}</b></div>
       <div style="display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid rgba(28,27,23,0.06);"><span style="font-size:15.5px;color:#3A382F;flex:1;">MAE Champion / Challenger</span><b style="font-family:'IBM Plex Mono',monospace;font-size:15.5px;">{_fmt_fi(c_champ_mae,2)} / {_fmt_fi(c_chall_mae,2)} EUR/MWh</b></div>
       <div style="display:flex;align-items:center;gap:12px;padding:15px 0;{'border-bottom:1px solid rgba(28,27,23,0.06);' if c_thin else ''}"><span style="font-size:15.5px;color:#3A382F;flex:1;">Tila</span><span style="display:inline-flex;align-items:center;gap:6px;background:{v_bg};color:{v_fg};padding:5px 11px;border-radius:999px;font-size:14px;font-weight:700;">{html.escape(v_text)}</span></div>
@@ -1105,6 +1126,7 @@ def _render_diagnostics_html(p):
     <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Mallin tila</div>
     <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0 0 14px;">Champion &amp; Challenger</h2>
     {model_html}
+    {shadow_html}
     {challenger_html}
 
     <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Ennusteen taustatekijät</div>
