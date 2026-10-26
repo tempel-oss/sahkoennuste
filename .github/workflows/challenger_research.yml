@@ -31,4 +31,15 @@ jobs:
       - name: Train on temporary copy and print aggregate metrics
         env:
           MATCHED_CACHE: ${{ steps.restore.outputs.cache-matched-key }}
-        run: python research/train_cloud_research.py
+        shell: bash
+        run: |
+          echo "RESEARCH_COMMIT=$GITHUB_SHA"
+          echo "RESEARCH_CACHE=$MATCHED_CACHE"
+          python -m pip freeze
+          python research/train_cloud_research.py | tee research_summary.log
+      - name: Preserve aggregate research summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: champion-challenger-summary-${{ github.run_id }}
+          path: research_summary.log
+          retention-days: 90
