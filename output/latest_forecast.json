@@ -1,9 +1,9 @@
 {
   "schema_version": "1.4",
-  "generated_at_utc": "2026-10-28T04:19:15+00:00",
-  "forecast_run_id": "20261028T041834Z-ad81b80e",
-  "forecast_issue_time": "2026-10-28T04:18:34+00:00",
-  "issue_slot": "morning",
+  "generated_at_utc": "2026-10-28T14:19:53+00:00",
+  "forecast_run_id": "20261028T141911Z-b015e690",
+  "forecast_issue_time": "2026-10-28T14:19:11+00:00",
+  "issue_slot": "afternoon",
   "issue_slot_source": "explicit",
   "model": {
     "name": "fundamental_baseline",
@@ -13,73 +13,73 @@
   "shadow_comparison": {
     "schema_version": "1.0",
     "status": "collecting",
-    "generated_at_utc": "2026-10-28T04:19:15.589191+00:00",
+    "generated_at_utc": "2026-10-28T14:19:53.477706+00:00",
     "automatic_promotion": false,
     "overall": {
-      "n": 5,
-      "unique_target_hours": 5,
+      "n": 15,
+      "unique_target_hours": 15,
       "forecast_runs": 1,
-      "champion_mae_eur_mwh": 24.728,
-      "challenger_mae_eur_mwh": 18.9505,
-      "champion_rmse_eur_mwh": 24.785,
-      "challenger_rmse_eur_mwh": 19.0066,
-      "champion_bias_eur_mwh": -24.728,
-      "challenger_bias_eur_mwh": -18.9505,
-      "mae_skill_pct": 23.364
+      "champion_mae_eur_mwh": 14.1677,
+      "challenger_mae_eur_mwh": 11.2202,
+      "champion_rmse_eur_mwh": 16.6684,
+      "challenger_rmse_eur_mwh": 12.9411,
+      "champion_bias_eur_mwh": -5.7519,
+      "challenger_bias_eur_mwh": -4.9467,
+      "mae_skill_pct": 20.804
     },
     "by_horizon": {
       "1": {
-        "n": 5,
-        "unique_target_hours": 5,
+        "n": 15,
+        "unique_target_hours": 15,
         "forecast_runs": 1,
-        "champion_mae_eur_mwh": 24.728,
-        "challenger_mae_eur_mwh": 18.9505,
-        "champion_rmse_eur_mwh": 24.785,
-        "challenger_rmse_eur_mwh": 19.0066,
-        "champion_bias_eur_mwh": -24.728,
-        "challenger_bias_eur_mwh": -18.9505,
-        "mae_skill_pct": 23.364
+        "champion_mae_eur_mwh": 14.1677,
+        "challenger_mae_eur_mwh": 11.2202,
+        "champion_rmse_eur_mwh": 16.6684,
+        "challenger_rmse_eur_mwh": 12.9411,
+        "champion_bias_eur_mwh": -5.7519,
+        "challenger_bias_eur_mwh": -4.9467,
+        "mae_skill_pct": 20.804
       }
     },
     "by_slot": {
       "morning": {
-        "n": 5,
-        "unique_target_hours": 5,
+        "n": 15,
+        "unique_target_hours": 15,
         "forecast_runs": 1,
-        "champion_mae_eur_mwh": 24.728,
-        "challenger_mae_eur_mwh": 18.9505,
-        "champion_rmse_eur_mwh": 24.785,
-        "challenger_rmse_eur_mwh": 19.0066,
-        "champion_bias_eur_mwh": -24.728,
-        "challenger_bias_eur_mwh": -18.9505,
-        "mae_skill_pct": 23.364
+        "champion_mae_eur_mwh": 14.1677,
+        "challenger_mae_eur_mwh": 11.2202,
+        "champion_rmse_eur_mwh": 16.6684,
+        "challenger_rmse_eur_mwh": 12.9411,
+        "champion_bias_eur_mwh": -5.7519,
+        "challenger_bias_eur_mwh": -4.9467,
+        "mae_skill_pct": 20.804
       }
     },
     "by_spec": {
       "4c667a6fcf0f65aefc686d5c973d19ac45846fc2c6f74e6dd2921525e63ce0e4": {
-        "n": 5,
-        "unique_target_hours": 5,
+        "n": 15,
+        "unique_target_hours": 15,
         "forecast_runs": 1,
-        "champion_mae_eur_mwh": 24.728,
-        "challenger_mae_eur_mwh": 18.9505,
-        "champion_rmse_eur_mwh": 24.785,
-        "challenger_rmse_eur_mwh": 19.0066,
-        "champion_bias_eur_mwh": -24.728,
-        "challenger_bias_eur_mwh": -18.9505,
-        "mae_skill_pct": 23.364
+        "champion_mae_eur_mwh": 14.1677,
+        "challenger_mae_eur_mwh": 11.2202,
+        "champion_rmse_eur_mwh": 16.6684,
+        "challenger_rmse_eur_mwh": 12.9411,
+        "champion_bias_eur_mwh": -5.7519,
+        "challenger_bias_eur_mwh": -4.9467,
+        "mae_skill_pct": 20.804
       }
     },
     "collection_status": {
-      "recorded": 3
+      "recorded": 4
     },
     "latest_collection": {
-      "forecast_run_id": "20261028T041834Z-ad81b80e",
+      "forecast_run_id": "20261028T141911Z-b015e690",
       "status": "recorded",
       "message": "Frozen candidate; all training actuals available before origin; first capture only",
-      "recorded_at_utc": "2026-10-28T04:18:50.090427+00:00"
+      "recorded_at_utc": "2026-10-28T14:19:26.938273+00:00"
     },
     "first_recorded_at_utc": "2026-10-27T04:19:40.820044+00:00",
-    "observed_days": 1.0,
+    "observed_days": 1.42,
     "assessment_ready": false,
     "assessment_gate": "28 days, 40 scored origins, 500 unique target hours and one frozen specification; manual review only"
   },
@@ -105,11 +105,11 @@
       "outperforms_champion": false
     },
     "evaluation": {
-      "scored_hours": 28917,
-      "scored_forecast_runs": 122,
-      "mae_eur_mwh": 40.16,
-      "baseline_mae_eur_mwh": 43.93,
-      "p10_p90_coverage": 0.691
+      "scored_hours": 29468,
+      "scored_forecast_runs": 123,
+      "mae_eur_mwh": 39.72,
+      "baseline_mae_eur_mwh": 43.42,
+      "p10_p90_coverage": 0.696
     },
     "challenger_training_ready": true,
     "training_gate": "1000 scored hours and 20 scored forecast runs",
@@ -117,181 +117,181 @@
   },
   "forecast_quality": {
     "overall": {
-      "n": 28917,
-      "mae_eur_mwh": 40.16,
-      "bias_eur_mwh": -5.74,
-      "rmse_eur_mwh": 57.87,
-      "baseline_mae_eur_mwh": 43.93,
-      "p10_p90_coverage": 0.691,
-      "skill_vs_baseline_pct": 8.6
+      "n": 29468,
+      "mae_eur_mwh": 39.72,
+      "bias_eur_mwh": -5.45,
+      "rmse_eur_mwh": 57.4,
+      "baseline_mae_eur_mwh": 43.42,
+      "p10_p90_coverage": 0.696,
+      "skill_vs_baseline_pct": 8.5
     },
     "by_horizon": {
       "1": {
-        "n": 1034,
-        "mae_eur_mwh": 28.05,
-        "bias_eur_mwh": -13.38,
-        "rmse_eur_mwh": 42.02,
-        "baseline_mae_eur_mwh": 30.15,
-        "p10_p90_coverage": 0.545,
-        "skill_vs_baseline_pct": 7.0
+        "n": 1057,
+        "mae_eur_mwh": 27.7,
+        "bias_eur_mwh": -12.93,
+        "rmse_eur_mwh": 41.61,
+        "baseline_mae_eur_mwh": 29.75,
+        "p10_p90_coverage": 0.552,
+        "skill_vs_baseline_pct": 6.9
       },
       "2": {
-        "n": 2861,
-        "mae_eur_mwh": 38.78,
-        "bias_eur_mwh": -9.61,
-        "rmse_eur_mwh": 55.4,
-        "baseline_mae_eur_mwh": 42.14,
-        "p10_p90_coverage": 0.479,
+        "n": 2909,
+        "mae_eur_mwh": 38.34,
+        "bias_eur_mwh": -9.4,
+        "rmse_eur_mwh": 54.97,
+        "baseline_mae_eur_mwh": 41.69,
+        "p10_p90_coverage": 0.484,
         "skill_vs_baseline_pct": 8.0
       },
       "3": {
-        "n": 2812,
-        "mae_eur_mwh": 43.1,
-        "bias_eur_mwh": -11.18,
-        "rmse_eur_mwh": 62.27,
-        "baseline_mae_eur_mwh": 47.56,
-        "p10_p90_coverage": 0.536,
-        "skill_vs_baseline_pct": 9.4
+        "n": 2860,
+        "mae_eur_mwh": 42.56,
+        "bias_eur_mwh": -11.01,
+        "rmse_eur_mwh": 61.77,
+        "baseline_mae_eur_mwh": 47.0,
+        "p10_p90_coverage": 0.543,
+        "skill_vs_baseline_pct": 9.5
       },
       "4": {
-        "n": 2764,
-        "mae_eur_mwh": 42.93,
-        "bias_eur_mwh": -11.58,
-        "rmse_eur_mwh": 61.64,
-        "baseline_mae_eur_mwh": 46.29,
-        "p10_p90_coverage": 0.618,
+        "n": 2812,
+        "mae_eur_mwh": 42.43,
+        "bias_eur_mwh": -11.55,
+        "rmse_eur_mwh": 61.16,
+        "baseline_mae_eur_mwh": 45.77,
+        "p10_p90_coverage": 0.621,
         "skill_vs_baseline_pct": 7.3
       },
       "5": {
-        "n": 2716,
-        "mae_eur_mwh": 42.59,
-        "bias_eur_mwh": -6.67,
-        "rmse_eur_mwh": 60.33,
-        "baseline_mae_eur_mwh": 46.52,
-        "p10_p90_coverage": 0.647,
-        "skill_vs_baseline_pct": 8.5
+        "n": 2764,
+        "mae_eur_mwh": 42.05,
+        "bias_eur_mwh": -6.64,
+        "rmse_eur_mwh": 59.84,
+        "baseline_mae_eur_mwh": 45.99,
+        "p10_p90_coverage": 0.653,
+        "skill_vs_baseline_pct": 8.6
       },
       "6": {
-        "n": 2645,
-        "mae_eur_mwh": 41.52,
-        "bias_eur_mwh": -9.21,
-        "rmse_eur_mwh": 60.35,
-        "baseline_mae_eur_mwh": 46.6,
-        "p10_p90_coverage": 0.707,
-        "skill_vs_baseline_pct": 10.9
+        "n": 2716,
+        "mae_eur_mwh": 40.85,
+        "bias_eur_mwh": -8.67,
+        "rmse_eur_mwh": 59.64,
+        "baseline_mae_eur_mwh": 45.67,
+        "p10_p90_coverage": 0.715,
+        "skill_vs_baseline_pct": 10.5
       },
       "7": {
-        "n": 2596,
-        "mae_eur_mwh": 39.52,
-        "bias_eur_mwh": -5.77,
-        "rmse_eur_mwh": 59.1,
-        "baseline_mae_eur_mwh": 44.26,
-        "p10_p90_coverage": 0.757,
-        "skill_vs_baseline_pct": 10.7
+        "n": 2645,
+        "mae_eur_mwh": 39.06,
+        "bias_eur_mwh": -5.42,
+        "rmse_eur_mwh": 58.6,
+        "baseline_mae_eur_mwh": 43.64,
+        "p10_p90_coverage": 0.761,
+        "skill_vs_baseline_pct": 10.5
       },
       "8": {
-        "n": 2548,
-        "mae_eur_mwh": 34.95,
-        "bias_eur_mwh": 1.35,
-        "rmse_eur_mwh": 51.91,
-        "baseline_mae_eur_mwh": 38.41,
-        "p10_p90_coverage": 0.809,
-        "skill_vs_baseline_pct": 9.0
+        "n": 2596,
+        "mae_eur_mwh": 34.51,
+        "bias_eur_mwh": 1.5,
+        "rmse_eur_mwh": 51.46,
+        "baseline_mae_eur_mwh": 37.9,
+        "p10_p90_coverage": 0.813,
+        "skill_vs_baseline_pct": 8.9
       },
       "9": {
-        "n": 2500,
-        "mae_eur_mwh": 35.87,
-        "bias_eur_mwh": 2.55,
-        "rmse_eur_mwh": 51.37,
-        "baseline_mae_eur_mwh": 37.3,
-        "p10_p90_coverage": 0.85,
-        "skill_vs_baseline_pct": 3.9
+        "n": 2548,
+        "mae_eur_mwh": 35.51,
+        "bias_eur_mwh": 2.79,
+        "rmse_eur_mwh": 50.96,
+        "baseline_mae_eur_mwh": 36.91,
+        "p10_p90_coverage": 0.852,
+        "skill_vs_baseline_pct": 3.8
       },
       "10": {
-        "n": 2452,
-        "mae_eur_mwh": 38.66,
-        "bias_eur_mwh": 2.34,
-        "rmse_eur_mwh": 54.67,
-        "baseline_mae_eur_mwh": 40.59,
-        "p10_p90_coverage": 0.83,
-        "skill_vs_baseline_pct": 4.8
+        "n": 2500,
+        "mae_eur_mwh": 38.4,
+        "bias_eur_mwh": 2.72,
+        "rmse_eur_mwh": 54.32,
+        "baseline_mae_eur_mwh": 40.39,
+        "p10_p90_coverage": 0.833,
+        "skill_vs_baseline_pct": 4.9
       },
       "11": {
-        "n": 2404,
-        "mae_eur_mwh": 42.65,
-        "bias_eur_mwh": -3.48,
-        "rmse_eur_mwh": 58.57,
-        "baseline_mae_eur_mwh": 47.09,
-        "p10_p90_coverage": 0.778,
-        "skill_vs_baseline_pct": 9.4
+        "n": 2452,
+        "mae_eur_mwh": 42.22,
+        "bias_eur_mwh": -3.02,
+        "rmse_eur_mwh": 58.09,
+        "baseline_mae_eur_mwh": 46.45,
+        "p10_p90_coverage": 0.782,
+        "skill_vs_baseline_pct": 9.1
       },
       "12": {
-        "n": 1585,
-        "mae_eur_mwh": 48.85,
-        "bias_eur_mwh": -6.85,
-        "rmse_eur_mwh": 67.39,
-        "baseline_mae_eur_mwh": 55.78,
-        "p10_p90_coverage": 0.732,
-        "skill_vs_baseline_pct": 12.4
+        "n": 1609,
+        "mae_eur_mwh": 48.79,
+        "bias_eur_mwh": -6.08,
+        "rmse_eur_mwh": 67.12,
+        "baseline_mae_eur_mwh": 55.83,
+        "p10_p90_coverage": 0.736,
+        "skill_vs_baseline_pct": 12.6
       }
     },
     "weak_spots": [
       {
         "label": "D+12",
-        "mae_eur_mwh": 48.85,
-        "bias_eur_mwh": -6.85,
-        "coverage": 0.732,
-        "n": 1585
+        "mae_eur_mwh": 48.79,
+        "bias_eur_mwh": -6.08,
+        "coverage": 0.736,
+        "n": 1609
       },
       {
         "label": "D+3",
-        "mae_eur_mwh": 43.1,
-        "bias_eur_mwh": -11.18,
-        "coverage": 0.536,
-        "n": 2812
+        "mae_eur_mwh": 42.56,
+        "bias_eur_mwh": -11.01,
+        "coverage": 0.543,
+        "n": 2860
       },
       {
         "label": "D+4",
-        "mae_eur_mwh": 42.93,
-        "bias_eur_mwh": -11.58,
-        "coverage": 0.618,
-        "n": 2764
+        "mae_eur_mwh": 42.43,
+        "bias_eur_mwh": -11.55,
+        "coverage": 0.621,
+        "n": 2812
       }
     ],
-    "scored_hours": 28917,
-    "scored_forecast_runs": 122,
+    "scored_hours": 29468,
+    "scored_forecast_runs": 123,
     "training_ready": true,
     "walk_forward_ready": true,
     "training_gate": "1000 scored hours + 20 scored forecast runs",
     "walk_forward_gate": "1500 scored hours + 30 scored forecast runs"
   },
-  "previous_forecast_run_id": "20261027T141856Z-0fe779a4",
+  "previous_forecast_run_id": "20261028T041834Z-ad81b80e",
   "data_quality": "fundamental_v0.7_no_historical_training",
   "freshness": {
     "overall": "fresh",
     "sources": [
       {
         "source": "Fingrid",
-        "timestamp": "2026-10-28T04:16:02+00:00",
-        "age_minutes": 3.0,
+        "timestamp": "2026-10-28T14:16:11+00:00",
+        "age_minutes": 4.0,
         "state": "fresh"
       },
       {
         "source": "Nord Pool",
-        "timestamp": "2026-10-28T04:16:52+00:00",
-        "age_minutes": 2.0,
+        "timestamp": "2026-10-28T14:17:02+00:00",
+        "age_minutes": 3.0,
         "state": "fresh"
       },
       {
         "source": "Sää",
-        "timestamp": "2026-10-28T04:18:17+00:00",
+        "timestamp": "2026-10-28T14:18:49+00:00",
         "age_minutes": 1.0,
         "state": "fresh"
       },
       {
         "source": "ENTSO-E",
-        "timestamp": "2026-10-28T04:16:53+00:00",
-        "age_minutes": 2.0,
+        "timestamp": "2026-10-28T14:17:03+00:00",
+        "age_minutes": 3.0,
         "state": "fresh"
       }
     ]
@@ -845,94 +845,644 @@
         }
       ],
       "observations": 96,
-      "price_run_issue_time": "2026-10-28T04:16:52+00:00"
+      "price_run_issue_time": "2026-10-28T14:17:02+00:00"
+    },
+    {
+      "date": "2026-10-29",
+      "d_plus": 1,
+      "value_type": "day_ahead",
+      "published": true,
+      "mean_snt_kwh_vat": 2.16,
+      "min_snt_kwh_vat": 0.95,
+      "max_snt_kwh_vat": 3.72,
+      "min_price_detail": {
+        "price_snt_kwh_vat": 0.95,
+        "valid_time": "2026-10-29T05:00:00+02:00",
+        "window": "05:00–05:15",
+        "resolution_minutes": 15
+      },
+      "max_price_detail": {
+        "price_snt_kwh_vat": 3.72,
+        "valid_time": "2026-10-29T10:45:00+02:00",
+        "window": "10:45–11:00",
+        "resolution_minutes": 15
+      },
+      "price_resolution_minutes": 15,
+      "cheapest_3h": {
+        "window": "02:30–05:30",
+        "mean_snt_kwh_vat": 0.97
+      },
+      "expensive_3h": {
+        "window": "18:00–21:00",
+        "mean_snt_kwh_vat": 3.06
+      },
+      "cheapest_hour": {
+        "hour": 4,
+        "valid_time": "2026-10-29T04:00:00+02:00",
+        "price_snt_kwh_vat": 0.96
+      },
+      "expensive_hour": {
+        "hour": 19,
+        "valid_time": "2026-10-29T19:00:00+02:00",
+        "price_snt_kwh_vat": 3.2
+      },
+      "hourly": [
+        {
+          "hour": 0,
+          "valid_time": "2026-10-29T00:00:00+02:00",
+          "price_snt_kwh_vat": 1.17
+        },
+        {
+          "hour": 1,
+          "valid_time": "2026-10-29T01:00:00+02:00",
+          "price_snt_kwh_vat": 1.0
+        },
+        {
+          "hour": 2,
+          "valid_time": "2026-10-29T02:00:00+02:00",
+          "price_snt_kwh_vat": 0.97
+        },
+        {
+          "hour": 3,
+          "valid_time": "2026-10-29T03:00:00+02:00",
+          "price_snt_kwh_vat": 0.99
+        },
+        {
+          "hour": 4,
+          "valid_time": "2026-10-29T04:00:00+02:00",
+          "price_snt_kwh_vat": 0.96
+        },
+        {
+          "hour": 5,
+          "valid_time": "2026-10-29T05:00:00+02:00",
+          "price_snt_kwh_vat": 0.97
+        },
+        {
+          "hour": 6,
+          "valid_time": "2026-10-29T06:00:00+02:00",
+          "price_snt_kwh_vat": 1.17
+        },
+        {
+          "hour": 7,
+          "valid_time": "2026-10-29T07:00:00+02:00",
+          "price_snt_kwh_vat": 1.52
+        },
+        {
+          "hour": 8,
+          "valid_time": "2026-10-29T08:00:00+02:00",
+          "price_snt_kwh_vat": 1.98
+        },
+        {
+          "hour": 9,
+          "valid_time": "2026-10-29T09:00:00+02:00",
+          "price_snt_kwh_vat": 2.55
+        },
+        {
+          "hour": 10,
+          "valid_time": "2026-10-29T10:00:00+02:00",
+          "price_snt_kwh_vat": 2.95
+        },
+        {
+          "hour": 11,
+          "valid_time": "2026-10-29T11:00:00+02:00",
+          "price_snt_kwh_vat": 2.86
+        },
+        {
+          "hour": 12,
+          "valid_time": "2026-10-29T12:00:00+02:00",
+          "price_snt_kwh_vat": 2.61
+        },
+        {
+          "hour": 13,
+          "valid_time": "2026-10-29T13:00:00+02:00",
+          "price_snt_kwh_vat": 2.89
+        },
+        {
+          "hour": 14,
+          "valid_time": "2026-10-29T14:00:00+02:00",
+          "price_snt_kwh_vat": 2.78
+        },
+        {
+          "hour": 15,
+          "valid_time": "2026-10-29T15:00:00+02:00",
+          "price_snt_kwh_vat": 2.52
+        },
+        {
+          "hour": 16,
+          "valid_time": "2026-10-29T16:00:00+02:00",
+          "price_snt_kwh_vat": 2.91
+        },
+        {
+          "hour": 17,
+          "valid_time": "2026-10-29T17:00:00+02:00",
+          "price_snt_kwh_vat": 2.53
+        },
+        {
+          "hour": 18,
+          "valid_time": "2026-10-29T18:00:00+02:00",
+          "price_snt_kwh_vat": 3.08
+        },
+        {
+          "hour": 19,
+          "valid_time": "2026-10-29T19:00:00+02:00",
+          "price_snt_kwh_vat": 3.2
+        },
+        {
+          "hour": 20,
+          "valid_time": "2026-10-29T20:00:00+02:00",
+          "price_snt_kwh_vat": 2.91
+        },
+        {
+          "hour": 21,
+          "valid_time": "2026-10-29T21:00:00+02:00",
+          "price_snt_kwh_vat": 2.47
+        },
+        {
+          "hour": 22,
+          "valid_time": "2026-10-29T22:00:00+02:00",
+          "price_snt_kwh_vat": 2.52
+        },
+        {
+          "hour": 23,
+          "valid_time": "2026-10-29T23:00:00+02:00",
+          "price_snt_kwh_vat": 2.32
+        }
+      ],
+      "resolution_prices": [
+        {
+          "valid_time": "2026-10-29T00:00:00+02:00",
+          "price_snt_kwh_vat": 1.25
+        },
+        {
+          "valid_time": "2026-10-29T00:15:00+02:00",
+          "price_snt_kwh_vat": 1.25
+        },
+        {
+          "valid_time": "2026-10-29T00:30:00+02:00",
+          "price_snt_kwh_vat": 1.17
+        },
+        {
+          "valid_time": "2026-10-29T00:45:00+02:00",
+          "price_snt_kwh_vat": 1.01
+        },
+        {
+          "valid_time": "2026-10-29T01:00:00+02:00",
+          "price_snt_kwh_vat": 1.01
+        },
+        {
+          "valid_time": "2026-10-29T01:15:00+02:00",
+          "price_snt_kwh_vat": 1.0
+        },
+        {
+          "valid_time": "2026-10-29T01:30:00+02:00",
+          "price_snt_kwh_vat": 1.0
+        },
+        {
+          "valid_time": "2026-10-29T01:45:00+02:00",
+          "price_snt_kwh_vat": 0.97
+        },
+        {
+          "valid_time": "2026-10-29T02:00:00+02:00",
+          "price_snt_kwh_vat": 0.98
+        },
+        {
+          "valid_time": "2026-10-29T02:15:00+02:00",
+          "price_snt_kwh_vat": 0.97
+        },
+        {
+          "valid_time": "2026-10-29T02:30:00+02:00",
+          "price_snt_kwh_vat": 0.97
+        },
+        {
+          "valid_time": "2026-10-29T02:45:00+02:00",
+          "price_snt_kwh_vat": 0.98
+        },
+        {
+          "valid_time": "2026-10-29T03:00:00+02:00",
+          "price_snt_kwh_vat": 0.99
+        },
+        {
+          "valid_time": "2026-10-29T03:15:00+02:00",
+          "price_snt_kwh_vat": 0.99
+        },
+        {
+          "valid_time": "2026-10-29T03:30:00+02:00",
+          "price_snt_kwh_vat": 0.99
+        },
+        {
+          "valid_time": "2026-10-29T03:45:00+02:00",
+          "price_snt_kwh_vat": 0.99
+        },
+        {
+          "valid_time": "2026-10-29T04:00:00+02:00",
+          "price_snt_kwh_vat": 0.96
+        },
+        {
+          "valid_time": "2026-10-29T04:15:00+02:00",
+          "price_snt_kwh_vat": 0.96
+        },
+        {
+          "valid_time": "2026-10-29T04:30:00+02:00",
+          "price_snt_kwh_vat": 0.95
+        },
+        {
+          "valid_time": "2026-10-29T04:45:00+02:00",
+          "price_snt_kwh_vat": 0.95
+        },
+        {
+          "valid_time": "2026-10-29T05:00:00+02:00",
+          "price_snt_kwh_vat": 0.95
+        },
+        {
+          "valid_time": "2026-10-29T05:15:00+02:00",
+          "price_snt_kwh_vat": 0.96
+        },
+        {
+          "valid_time": "2026-10-29T05:30:00+02:00",
+          "price_snt_kwh_vat": 0.98
+        },
+        {
+          "valid_time": "2026-10-29T05:45:00+02:00",
+          "price_snt_kwh_vat": 1.01
+        },
+        {
+          "valid_time": "2026-10-29T06:00:00+02:00",
+          "price_snt_kwh_vat": 1.0
+        },
+        {
+          "valid_time": "2026-10-29T06:15:00+02:00",
+          "price_snt_kwh_vat": 1.04
+        },
+        {
+          "valid_time": "2026-10-29T06:30:00+02:00",
+          "price_snt_kwh_vat": 1.25
+        },
+        {
+          "valid_time": "2026-10-29T06:45:00+02:00",
+          "price_snt_kwh_vat": 1.4
+        },
+        {
+          "valid_time": "2026-10-29T07:00:00+02:00",
+          "price_snt_kwh_vat": 0.98
+        },
+        {
+          "valid_time": "2026-10-29T07:15:00+02:00",
+          "price_snt_kwh_vat": 1.13
+        },
+        {
+          "valid_time": "2026-10-29T07:30:00+02:00",
+          "price_snt_kwh_vat": 1.51
+        },
+        {
+          "valid_time": "2026-10-29T07:45:00+02:00",
+          "price_snt_kwh_vat": 2.47
+        },
+        {
+          "valid_time": "2026-10-29T08:00:00+02:00",
+          "price_snt_kwh_vat": 1.3
+        },
+        {
+          "valid_time": "2026-10-29T08:15:00+02:00",
+          "price_snt_kwh_vat": 1.65
+        },
+        {
+          "valid_time": "2026-10-29T08:30:00+02:00",
+          "price_snt_kwh_vat": 2.28
+        },
+        {
+          "valid_time": "2026-10-29T08:45:00+02:00",
+          "price_snt_kwh_vat": 2.69
+        },
+        {
+          "valid_time": "2026-10-29T09:00:00+02:00",
+          "price_snt_kwh_vat": 1.94
+        },
+        {
+          "valid_time": "2026-10-29T09:15:00+02:00",
+          "price_snt_kwh_vat": 2.48
+        },
+        {
+          "valid_time": "2026-10-29T09:30:00+02:00",
+          "price_snt_kwh_vat": 2.63
+        },
+        {
+          "valid_time": "2026-10-29T09:45:00+02:00",
+          "price_snt_kwh_vat": 3.14
+        },
+        {
+          "valid_time": "2026-10-29T10:00:00+02:00",
+          "price_snt_kwh_vat": 2.39
+        },
+        {
+          "valid_time": "2026-10-29T10:15:00+02:00",
+          "price_snt_kwh_vat": 2.45
+        },
+        {
+          "valid_time": "2026-10-29T10:30:00+02:00",
+          "price_snt_kwh_vat": 3.26
+        },
+        {
+          "valid_time": "2026-10-29T10:45:00+02:00",
+          "price_snt_kwh_vat": 3.72
+        },
+        {
+          "valid_time": "2026-10-29T11:00:00+02:00",
+          "price_snt_kwh_vat": 3.14
+        },
+        {
+          "valid_time": "2026-10-29T11:15:00+02:00",
+          "price_snt_kwh_vat": 2.95
+        },
+        {
+          "valid_time": "2026-10-29T11:30:00+02:00",
+          "price_snt_kwh_vat": 2.51
+        },
+        {
+          "valid_time": "2026-10-29T11:45:00+02:00",
+          "price_snt_kwh_vat": 2.85
+        },
+        {
+          "valid_time": "2026-10-29T12:00:00+02:00",
+          "price_snt_kwh_vat": 2.47
+        },
+        {
+          "valid_time": "2026-10-29T12:15:00+02:00",
+          "price_snt_kwh_vat": 2.81
+        },
+        {
+          "valid_time": "2026-10-29T12:30:00+02:00",
+          "price_snt_kwh_vat": 2.73
+        },
+        {
+          "valid_time": "2026-10-29T12:45:00+02:00",
+          "price_snt_kwh_vat": 2.45
+        },
+        {
+          "valid_time": "2026-10-29T13:00:00+02:00",
+          "price_snt_kwh_vat": 3.33
+        },
+        {
+          "valid_time": "2026-10-29T13:15:00+02:00",
+          "price_snt_kwh_vat": 2.88
+        },
+        {
+          "valid_time": "2026-10-29T13:30:00+02:00",
+          "price_snt_kwh_vat": 2.75
+        },
+        {
+          "valid_time": "2026-10-29T13:45:00+02:00",
+          "price_snt_kwh_vat": 2.59
+        },
+        {
+          "valid_time": "2026-10-29T14:00:00+02:00",
+          "price_snt_kwh_vat": 3.4
+        },
+        {
+          "valid_time": "2026-10-29T14:15:00+02:00",
+          "price_snt_kwh_vat": 2.94
+        },
+        {
+          "valid_time": "2026-10-29T14:30:00+02:00",
+          "price_snt_kwh_vat": 2.45
+        },
+        {
+          "valid_time": "2026-10-29T14:45:00+02:00",
+          "price_snt_kwh_vat": 2.32
+        },
+        {
+          "valid_time": "2026-10-29T15:00:00+02:00",
+          "price_snt_kwh_vat": 2.96
+        },
+        {
+          "valid_time": "2026-10-29T15:15:00+02:00",
+          "price_snt_kwh_vat": 2.45
+        },
+        {
+          "valid_time": "2026-10-29T15:30:00+02:00",
+          "price_snt_kwh_vat": 2.5
+        },
+        {
+          "valid_time": "2026-10-29T15:45:00+02:00",
+          "price_snt_kwh_vat": 2.18
+        },
+        {
+          "valid_time": "2026-10-29T16:00:00+02:00",
+          "price_snt_kwh_vat": 3.54
+        },
+        {
+          "valid_time": "2026-10-29T16:15:00+02:00",
+          "price_snt_kwh_vat": 2.92
+        },
+        {
+          "valid_time": "2026-10-29T16:30:00+02:00",
+          "price_snt_kwh_vat": 2.67
+        },
+        {
+          "valid_time": "2026-10-29T16:45:00+02:00",
+          "price_snt_kwh_vat": 2.53
+        },
+        {
+          "valid_time": "2026-10-29T17:00:00+02:00",
+          "price_snt_kwh_vat": 2.89
+        },
+        {
+          "valid_time": "2026-10-29T17:15:00+02:00",
+          "price_snt_kwh_vat": 2.51
+        },
+        {
+          "valid_time": "2026-10-29T17:30:00+02:00",
+          "price_snt_kwh_vat": 2.36
+        },
+        {
+          "valid_time": "2026-10-29T17:45:00+02:00",
+          "price_snt_kwh_vat": 2.35
+        },
+        {
+          "valid_time": "2026-10-29T18:00:00+02:00",
+          "price_snt_kwh_vat": 3.51
+        },
+        {
+          "valid_time": "2026-10-29T18:15:00+02:00",
+          "price_snt_kwh_vat": 3.14
+        },
+        {
+          "valid_time": "2026-10-29T18:30:00+02:00",
+          "price_snt_kwh_vat": 2.97
+        },
+        {
+          "valid_time": "2026-10-29T18:45:00+02:00",
+          "price_snt_kwh_vat": 2.69
+        },
+        {
+          "valid_time": "2026-10-29T19:00:00+02:00",
+          "price_snt_kwh_vat": 3.39
+        },
+        {
+          "valid_time": "2026-10-29T19:15:00+02:00",
+          "price_snt_kwh_vat": 3.23
+        },
+        {
+          "valid_time": "2026-10-29T19:30:00+02:00",
+          "price_snt_kwh_vat": 3.16
+        },
+        {
+          "valid_time": "2026-10-29T19:45:00+02:00",
+          "price_snt_kwh_vat": 3.02
+        },
+        {
+          "valid_time": "2026-10-29T20:00:00+02:00",
+          "price_snt_kwh_vat": 3.43
+        },
+        {
+          "valid_time": "2026-10-29T20:15:00+02:00",
+          "price_snt_kwh_vat": 3.14
+        },
+        {
+          "valid_time": "2026-10-29T20:30:00+02:00",
+          "price_snt_kwh_vat": 2.63
+        },
+        {
+          "valid_time": "2026-10-29T20:45:00+02:00",
+          "price_snt_kwh_vat": 2.45
+        },
+        {
+          "valid_time": "2026-10-29T21:00:00+02:00",
+          "price_snt_kwh_vat": 2.89
+        },
+        {
+          "valid_time": "2026-10-29T21:15:00+02:00",
+          "price_snt_kwh_vat": 2.34
+        },
+        {
+          "valid_time": "2026-10-29T21:30:00+02:00",
+          "price_snt_kwh_vat": 2.45
+        },
+        {
+          "valid_time": "2026-10-29T21:45:00+02:00",
+          "price_snt_kwh_vat": 2.21
+        },
+        {
+          "valid_time": "2026-10-29T22:00:00+02:00",
+          "price_snt_kwh_vat": 2.29
+        },
+        {
+          "valid_time": "2026-10-29T22:15:00+02:00",
+          "price_snt_kwh_vat": 2.38
+        },
+        {
+          "valid_time": "2026-10-29T22:30:00+02:00",
+          "price_snt_kwh_vat": 2.62
+        },
+        {
+          "valid_time": "2026-10-29T22:45:00+02:00",
+          "price_snt_kwh_vat": 2.78
+        },
+        {
+          "valid_time": "2026-10-29T23:00:00+02:00",
+          "price_snt_kwh_vat": 2.45
+        },
+        {
+          "valid_time": "2026-10-29T23:15:00+02:00",
+          "price_snt_kwh_vat": 2.13
+        },
+        {
+          "valid_time": "2026-10-29T23:30:00+02:00",
+          "price_snt_kwh_vat": 2.45
+        },
+        {
+          "valid_time": "2026-10-29T23:45:00+02:00",
+          "price_snt_kwh_vat": 2.26
+        }
+      ],
+      "observations": 96,
+      "price_run_issue_time": "2026-10-28T14:17:02+00:00"
     }
   ],
   "days": [
     {
-      "date": "2026-10-29",
-      "d_plus": 1,
+      "date": "2026-10-30",
+      "d_plus": 2,
       "value_type": "forecast",
-      "p10_snt_kwh_vat": 0.34,
-      "p50_snt_kwh_vat": 3.06,
-      "p90_snt_kwh_vat": 5.54,
-      "baseline_snt_kwh_vat": 1.18,
+      "p10_snt_kwh_vat": 0.9,
+      "p50_snt_kwh_vat": 4.32,
+      "p90_snt_kwh_vat": 7.01,
+      "baseline_snt_kwh_vat": 2.16,
       "cheapest_3h": "02:00-05:00",
       "expensive_3h": "18:00-21:00",
       "risk": "kohtalainen",
       "uncertainty": {
-        "weather_component_snt_kwh": 0.93,
-        "model_component_snt_kwh": 1.67,
-        "half_width_snt_kwh": 2.6
+        "weather_component_snt_kwh": 1.12,
+        "model_component_snt_kwh": 1.93,
+        "half_width_snt_kwh": 3.06
       },
       "diagnostics": {
         "p10_price": {
-          "value": 0.34,
+          "value": 0.9,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p50_price": {
-          "value": 3.06,
+          "value": 4.32,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p90_price": {
-          "value": 5.54,
+          "value": 7.01,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "baseline_price": {
-          "value": 1.18,
+          "value": 2.16,
           "unit": "snt/kWh",
           "note": "baseline"
         },
         "consumption_forecast": {
-          "value": 9937.23,
+          "value": 9977.76,
           "unit": "MW",
           "note": "paivakeskiarvo"
         },
         "wind_forecast": {
-          "value": 4110.59,
+          "value": 2127.04,
           "unit": "MW",
           "note": "paivakeskiarvo"
         },
         "solar_forecast": {
-          "value": 40.88,
+          "value": 52.23,
           "unit": "MW",
           "note": "paivakeskiarvo"
         },
         "production_forecast": {
-          "value": 4499.77,
+          "value": 1696.05,
           "unit": "MW",
           "note": "paivakeskiarvo"
         },
         "residual_load": {
-          "value": 5785.76,
+          "value": 7798.49,
           "unit": "MW",
           "note": "kulutus-tuuli-aurinko"
         },
         "net_import_need": {
-          "value": 5437.45,
+          "value": 8281.71,
           "unit": "MW",
           "note": "kulutus-tuotanto"
         },
         "temperature": {
-          "value": 9.26,
+          "value": 7.35,
           "unit": "C",
           "note": "paivakeskiarvo"
         },
         "wind_100m": {
-          "value": 7.37,
+          "value": 6.24,
           "unit": "m/s",
           "note": "paivakeskiarvo"
         },
         "wind_uncertainty": {
-          "value": 2.3,
+          "value": 2.71,
           "unit": "m/s",
           "note": "ensemble spread"
         },
         "driver_anchor_eur_mwh": {
-          "value": 9.35,
+          "value": 17.21,
           "unit": "",
           "note": "forecast_engine driver"
         },
@@ -942,225 +1492,111 @@
           "note": "forecast_engine driver"
         },
         "driver_avg_load_mw": {
-          "value": 9934.0,
+          "value": 9977.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_wind_mw": {
-          "value": 4245.0,
+          "value": 2306.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_net_load_mw": {
-          "value": 5648.0,
+          "value": 7619.0,
           "unit": "",
           "note": "forecast_engine driver"
         }
       },
       "change_from_previous": {
-        "old": 2.95,
-        "new": 3.06,
-        "delta": 0.11
-      }
-    },
-    {
-      "date": "2026-10-30",
-      "d_plus": 2,
-      "value_type": "forecast",
-      "p10_snt_kwh_vat": 1.89,
-      "p50_snt_kwh_vat": 5.01,
-      "p90_snt_kwh_vat": 7.7,
-      "baseline_snt_kwh_vat": 1.18,
-      "cheapest_3h": "00:00-03:00",
-      "expensive_3h": "18:00-21:00",
-      "risk": "kohtalainen",
-      "uncertainty": {
-        "weather_component_snt_kwh": 1.13,
-        "model_component_snt_kwh": 1.78,
-        "half_width_snt_kwh": 2.91
-      },
-      "diagnostics": {
-        "p10_price": {
-          "value": 1.89,
-          "unit": "snt/kWh",
-          "note": "paivaennuste"
-        },
-        "p50_price": {
-          "value": 5.01,
-          "unit": "snt/kWh",
-          "note": "paivaennuste"
-        },
-        "p90_price": {
-          "value": 7.7,
-          "unit": "snt/kWh",
-          "note": "paivaennuste"
-        },
-        "baseline_price": {
-          "value": 1.18,
-          "unit": "snt/kWh",
-          "note": "baseline"
-        },
-        "consumption_forecast": {
-          "value": 9938.46,
-          "unit": "MW",
-          "note": "paivakeskiarvo"
-        },
-        "wind_forecast": {
-          "value": 2052.13,
-          "unit": "MW",
-          "note": "paivakeskiarvo"
-        },
-        "solar_forecast": {
-          "value": 69.37,
-          "unit": "MW",
-          "note": "paivakeskiarvo"
-        },
-        "production_forecast": {
-          "value": 1140.84,
-          "unit": "MW",
-          "note": "paivakeskiarvo"
-        },
-        "residual_load": {
-          "value": 7816.96,
-          "unit": "MW",
-          "note": "kulutus-tuuli-aurinko"
-        },
-        "net_import_need": {
-          "value": 8797.62,
-          "unit": "MW",
-          "note": "kulutus-tuotanto"
-        },
-        "temperature": {
-          "value": 7.34,
-          "unit": "C",
-          "note": "paivakeskiarvo"
-        },
-        "wind_100m": {
-          "value": 4.91,
-          "unit": "m/s",
-          "note": "paivakeskiarvo"
-        },
-        "wind_uncertainty": {
-          "value": 3.49,
-          "unit": "m/s",
-          "note": "ensemble spread"
-        },
-        "driver_anchor_eur_mwh": {
-          "value": 9.35,
-          "unit": "",
-          "note": "forecast_engine driver"
-        },
-        "driver_neighbor_context_eur_mwh": {
-          "value": 15.0,
-          "unit": "",
-          "note": "forecast_engine driver"
-        },
-        "driver_avg_load_mw": {
-          "value": 9937.0,
-          "unit": "",
-          "note": "forecast_engine driver"
-        },
-        "driver_avg_wind_mw": {
-          "value": 2177.0,
-          "unit": "",
-          "note": "forecast_engine driver"
-        },
-        "driver_avg_net_load_mw": {
-          "value": 7690.0,
-          "unit": "",
-          "note": "forecast_engine driver"
-        }
-      },
-      "change_from_previous": {
-        "old": 3.77,
-        "new": 5.01,
-        "delta": 1.24
+        "old": 5.01,
+        "new": 4.32,
+        "delta": -0.69
       }
     },
     {
       "date": "2026-10-31",
       "d_plus": 3,
       "value_type": "forecast",
-      "p10_snt_kwh_vat": 1.15,
-      "p50_snt_kwh_vat": 4.56,
-      "p90_snt_kwh_vat": 7.58,
-      "baseline_snt_kwh_vat": 1.18,
+      "p10_snt_kwh_vat": 0.47,
+      "p50_snt_kwh_vat": 4.57,
+      "p90_snt_kwh_vat": 7.72,
+      "baseline_snt_kwh_vat": 2.16,
       "cheapest_3h": "02:00-05:00",
-      "expensive_3h": "17:00-20:00",
+      "expensive_3h": "08:00-11:00",
       "risk": "kohtalainen",
       "uncertainty": {
-        "weather_component_snt_kwh": 1.39,
-        "model_component_snt_kwh": 1.82,
-        "half_width_snt_kwh": 3.21
+        "weather_component_snt_kwh": 1.58,
+        "model_component_snt_kwh": 2.05,
+        "half_width_snt_kwh": 3.63
       },
       "diagnostics": {
         "p10_price": {
-          "value": 1.15,
+          "value": 0.47,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p50_price": {
-          "value": 4.56,
+          "value": 4.57,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p90_price": {
-          "value": 7.58,
+          "value": 7.72,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "baseline_price": {
-          "value": 1.18,
+          "value": 2.16,
           "unit": "snt/kWh",
           "note": "baseline"
         },
         "consumption_forecast": {
-          "value": 9101.8,
+          "value": 9445.22,
           "unit": "MW",
           "note": "paivakeskiarvo"
         },
         "wind_forecast": {
-          "value": 1112.64,
+          "value": 872.29,
           "unit": "MW",
           "note": "paivakeskiarvo"
         },
         "solar_forecast": {
-          "value": 0.0,
+          "value": 103.1,
           "unit": "MW",
           "note": "paivakeskiarvo"
         },
         "production_forecast": {
-          "value": 305.27,
+          "value": 772.68,
           "unit": "MW",
           "note": "paivakeskiarvo"
         },
         "residual_load": {
-          "value": 7989.16,
+          "value": 8469.83,
           "unit": "MW",
           "note": "kulutus-tuuli-aurinko"
         },
         "net_import_need": {
-          "value": 8796.54,
+          "value": 8672.53,
           "unit": "MW",
           "note": "kulutus-tuotanto"
         },
         "temperature": {
-          "value": 5.99,
+          "value": 5.32,
           "unit": "C",
           "note": "paivakeskiarvo"
         },
         "wind_100m": {
-          "value": 3.44,
+          "value": 4.15,
           "unit": "m/s",
           "note": "paivakeskiarvo"
         },
         "wind_uncertainty": {
-          "value": 4.15,
+          "value": 4.2,
           "unit": "m/s",
           "note": "ensemble spread"
         },
         "driver_anchor_eur_mwh": {
-          "value": 9.35,
+          "value": 17.21,
           "unit": "",
           "note": "forecast_engine driver"
         },
@@ -1170,86 +1606,86 @@
           "note": "forecast_engine driver"
         },
         "driver_avg_load_mw": {
-          "value": 9642.0,
+          "value": 9435.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_wind_mw": {
-          "value": 2061.0,
+          "value": 1276.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_net_load_mw": {
-          "value": 7528.0,
+          "value": 8093.0,
           "unit": "",
           "note": "forecast_engine driver"
         }
       },
       "change_from_previous": {
-        "old": 3.6,
-        "new": 4.56,
-        "delta": 0.96
+        "old": 4.56,
+        "new": 4.57,
+        "delta": 0.01
       }
     },
     {
       "date": "2026-11-01",
       "d_plus": 4,
       "value_type": "forecast",
-      "p10_snt_kwh_vat": -1.77,
-      "p50_snt_kwh_vat": 3.2,
-      "p90_snt_kwh_vat": 7.43,
-      "baseline_snt_kwh_vat": 1.18,
-      "cheapest_3h": "02:00-05:00",
-      "expensive_3h": "17:00-20:00",
+      "p10_snt_kwh_vat": -3.41,
+      "p50_snt_kwh_vat": 2.68,
+      "p90_snt_kwh_vat": 7.5,
+      "baseline_snt_kwh_vat": 2.16,
+      "cheapest_3h": "03:00-06:00",
+      "expensive_3h": "18:00-21:00",
       "risk": "korkea",
       "uncertainty": {
-        "weather_component_snt_kwh": 2.18,
-        "model_component_snt_kwh": 2.42,
-        "half_width_snt_kwh": 4.6
+        "weather_component_snt_kwh": 2.57,
+        "model_component_snt_kwh": 2.89,
+        "half_width_snt_kwh": 5.46
       },
       "diagnostics": {
         "p10_price": {
-          "value": -1.77,
+          "value": -3.41,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p50_price": {
-          "value": 3.2,
+          "value": 2.68,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p90_price": {
-          "value": 7.43,
+          "value": 7.5,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "baseline_price": {
-          "value": 1.18,
+          "value": 2.16,
           "unit": "snt/kWh",
           "note": "baseline"
         },
         "production_forecast": {
-          "value": 205.3,
+          "value": 214.21,
           "unit": "MW",
           "note": "paivakeskiarvo"
         },
         "temperature": {
-          "value": 6.19,
+          "value": 5.77,
           "unit": "C",
           "note": "paivakeskiarvo"
         },
         "wind_100m": {
-          "value": 6.22,
+          "value": 6.58,
           "unit": "m/s",
           "note": "paivakeskiarvo"
         },
         "wind_uncertainty": {
-          "value": 4.58,
+          "value": 4.43,
           "unit": "m/s",
           "note": "ensemble spread"
         },
         "driver_anchor_eur_mwh": {
-          "value": 9.35,
+          "value": 17.21,
           "unit": "",
           "note": "forecast_engine driver"
         },
@@ -1259,81 +1695,81 @@
           "note": "forecast_engine driver"
         },
         "driver_avg_load_mw": {
-          "value": 9645.0,
+          "value": 9444.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_wind_mw": {
-          "value": 3435.0,
+          "value": 3263.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_net_load_mw": {
-          "value": 6164.0,
+          "value": 6142.0,
           "unit": "",
           "note": "forecast_engine driver"
         }
       },
       "change_from_previous": {
-        "old": 3.19,
-        "new": 3.2,
-        "delta": 0.0
+        "old": 3.2,
+        "new": 2.68,
+        "delta": -0.51
       }
     },
     {
       "date": "2026-11-02",
       "d_plus": 5,
       "value_type": "forecast",
-      "p10_snt_kwh_vat": -2.29,
-      "p50_snt_kwh_vat": 4.13,
-      "p90_snt_kwh_vat": 8.74,
-      "baseline_snt_kwh_vat": 1.18,
-      "cheapest_3h": "02:00-05:00",
-      "expensive_3h": "17:00-20:00",
+      "p10_snt_kwh_vat": -3.37,
+      "p50_snt_kwh_vat": 4.4,
+      "p90_snt_kwh_vat": 9.35,
+      "baseline_snt_kwh_vat": 2.16,
+      "cheapest_3h": "00:00-03:00",
+      "expensive_3h": "09:00-12:00",
       "risk": "korkea",
       "uncertainty": {
-        "weather_component_snt_kwh": 2.97,
-        "model_component_snt_kwh": 2.55,
-        "half_width_snt_kwh": 5.52
+        "weather_component_snt_kwh": 3.44,
+        "model_component_snt_kwh": 2.92,
+        "half_width_snt_kwh": 6.36
       },
       "diagnostics": {
         "p10_price": {
-          "value": -2.29,
+          "value": -3.37,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p50_price": {
-          "value": 4.13,
+          "value": 4.4,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p90_price": {
-          "value": 8.74,
+          "value": 9.35,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "baseline_price": {
-          "value": 1.18,
+          "value": 2.16,
           "unit": "snt/kWh",
           "note": "baseline"
         },
         "temperature": {
-          "value": 5.38,
+          "value": 4.88,
           "unit": "C",
           "note": "paivakeskiarvo"
         },
         "wind_100m": {
-          "value": 4.71,
+          "value": 4.92,
           "unit": "m/s",
           "note": "paivakeskiarvo"
         },
         "wind_uncertainty": {
-          "value": 5.92,
+          "value": 6.06,
           "unit": "m/s",
           "note": "ensemble spread"
         },
         "driver_anchor_eur_mwh": {
-          "value": 9.35,
+          "value": 17.21,
           "unit": "",
           "note": "forecast_engine driver"
         },
@@ -1343,81 +1779,81 @@
           "note": "forecast_engine driver"
         },
         "driver_avg_load_mw": {
-          "value": 9745.0,
+          "value": 9768.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_wind_mw": {
-          "value": 2838.0,
+          "value": 2034.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_net_load_mw": {
-          "value": 6868.0,
+          "value": 7679.0,
           "unit": "",
           "note": "forecast_engine driver"
         }
       },
       "change_from_previous": {
-        "old": 3.35,
-        "new": 4.13,
-        "delta": 0.78
+        "old": 4.13,
+        "new": 4.4,
+        "delta": 0.26
       }
     },
     {
       "date": "2026-11-03",
       "d_plus": 6,
       "value_type": "forecast",
-      "p10_snt_kwh_vat": -6.53,
-      "p50_snt_kwh_vat": 2.85,
-      "p90_snt_kwh_vat": 9.98,
-      "baseline_snt_kwh_vat": 1.18,
-      "cheapest_3h": "02:00-05:00",
-      "expensive_3h": "09:00-12:00",
+      "p10_snt_kwh_vat": -6.82,
+      "p50_snt_kwh_vat": 1.29,
+      "p90_snt_kwh_vat": 10.18,
+      "baseline_snt_kwh_vat": 2.16,
+      "cheapest_3h": "03:00-06:00",
+      "expensive_3h": "18:00-21:00",
       "risk": "korkea",
       "uncertainty": {
-        "weather_component_snt_kwh": 5.12,
-        "model_component_snt_kwh": 3.14,
-        "half_width_snt_kwh": 8.26
+        "weather_component_snt_kwh": 5.27,
+        "model_component_snt_kwh": 3.23,
+        "half_width_snt_kwh": 8.5
       },
       "diagnostics": {
         "p10_price": {
-          "value": -6.53,
+          "value": -6.82,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p50_price": {
-          "value": 2.85,
+          "value": 1.29,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p90_price": {
-          "value": 9.98,
+          "value": 10.18,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "baseline_price": {
-          "value": 1.18,
+          "value": 2.16,
           "unit": "snt/kWh",
           "note": "baseline"
         },
         "temperature": {
-          "value": 4.1,
+          "value": 3.15,
           "unit": "C",
           "note": "paivakeskiarvo"
         },
         "wind_100m": {
-          "value": 7.69,
+          "value": 8.35,
           "unit": "m/s",
           "note": "paivakeskiarvo"
         },
         "wind_uncertainty": {
-          "value": 8.22,
+          "value": 7.99,
           "unit": "m/s",
           "note": "ensemble spread"
         },
         "driver_anchor_eur_mwh": {
-          "value": 9.35,
+          "value": 17.21,
           "unit": "",
           "note": "forecast_engine driver"
         },
@@ -1427,81 +1863,81 @@
           "note": "forecast_engine driver"
         },
         "driver_avg_load_mw": {
-          "value": 9644.0,
+          "value": 9663.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_wind_mw": {
-          "value": 4550.0,
+          "value": 6135.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_net_load_mw": {
-          "value": 5041.0,
+          "value": 3454.0,
           "unit": "",
           "note": "forecast_engine driver"
         }
       },
       "change_from_previous": {
-        "old": 2.94,
-        "new": 2.85,
-        "delta": -0.09
+        "old": 2.85,
+        "new": 1.29,
+        "delta": -1.56
       }
     },
     {
       "date": "2026-11-04",
       "d_plus": 7,
       "value_type": "forecast",
-      "p10_snt_kwh_vat": -5.49,
-      "p50_snt_kwh_vat": 3.36,
-      "p90_snt_kwh_vat": 9.97,
-      "baseline_snt_kwh_vat": 1.18,
+      "p10_snt_kwh_vat": -7.09,
+      "p50_snt_kwh_vat": 2.96,
+      "p90_snt_kwh_vat": 10.54,
+      "baseline_snt_kwh_vat": 2.16,
       "cheapest_3h": "00:00-03:00",
       "expensive_3h": "17:00-20:00",
       "risk": "korkea",
       "uncertainty": {
-        "weather_component_snt_kwh": 4.89,
-        "model_component_snt_kwh": 2.84,
-        "half_width_snt_kwh": 7.73
+        "weather_component_snt_kwh": 5.6,
+        "model_component_snt_kwh": 3.22,
+        "half_width_snt_kwh": 8.82
       },
       "diagnostics": {
         "p10_price": {
-          "value": -5.49,
+          "value": -7.09,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p50_price": {
-          "value": 3.36,
+          "value": 2.96,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p90_price": {
-          "value": 9.97,
+          "value": 10.54,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "baseline_price": {
-          "value": 1.18,
+          "value": 2.16,
           "unit": "snt/kWh",
           "note": "baseline"
         },
         "temperature": {
-          "value": 1.32,
+          "value": 2.52,
           "unit": "C",
           "note": "paivakeskiarvo"
         },
         "wind_100m": {
-          "value": 5.63,
+          "value": 5.87,
           "unit": "m/s",
           "note": "paivakeskiarvo"
         },
         "wind_uncertainty": {
-          "value": 7.32,
+          "value": 7.39,
           "unit": "m/s",
           "note": "ensemble spread"
         },
         "driver_anchor_eur_mwh": {
-          "value": 9.35,
+          "value": 17.21,
           "unit": "",
           "note": "forecast_engine driver"
         },
@@ -1511,81 +1947,81 @@
           "note": "forecast_engine driver"
         },
         "driver_avg_load_mw": {
-          "value": 9474.0,
+          "value": 9575.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_wind_mw": {
-          "value": 3769.0,
+          "value": 3834.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_net_load_mw": {
-          "value": 5622.0,
+          "value": 5690.0,
           "unit": "",
           "note": "forecast_engine driver"
         }
       },
       "change_from_previous": {
-        "old": 3.28,
-        "new": 3.36,
-        "delta": 0.08
+        "old": 3.36,
+        "new": 2.96,
+        "delta": -0.4
       }
     },
     {
       "date": "2026-11-05",
       "d_plus": 8,
       "value_type": "forecast",
-      "p10_snt_kwh_vat": -4.02,
-      "p50_snt_kwh_vat": 3.99,
-      "p90_snt_kwh_vat": 10.17,
-      "baseline_snt_kwh_vat": 1.18,
-      "cheapest_3h": "02:00-05:00",
+      "p10_snt_kwh_vat": -6.99,
+      "p50_snt_kwh_vat": 2.7,
+      "p90_snt_kwh_vat": 10.88,
+      "baseline_snt_kwh_vat": 2.16,
+      "cheapest_3h": "00:00-03:00",
       "expensive_3h": "17:00-20:00",
       "risk": "korkea",
       "uncertainty": {
-        "weather_component_snt_kwh": 4.56,
-        "model_component_snt_kwh": 2.54,
-        "half_width_snt_kwh": 7.1
+        "weather_component_snt_kwh": 5.85,
+        "model_component_snt_kwh": 3.09,
+        "half_width_snt_kwh": 8.93
       },
       "diagnostics": {
         "p10_price": {
-          "value": -4.02,
+          "value": -6.99,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p50_price": {
-          "value": 3.99,
+          "value": 2.7,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p90_price": {
-          "value": 10.17,
+          "value": 10.88,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "baseline_price": {
-          "value": 1.18,
+          "value": 2.16,
           "unit": "snt/kWh",
           "note": "baseline"
         },
         "temperature": {
-          "value": 1.96,
+          "value": 4.86,
           "unit": "C",
           "note": "paivakeskiarvo"
         },
         "wind_100m": {
-          "value": 5.83,
+          "value": 7.86,
           "unit": "m/s",
           "note": "paivakeskiarvo"
         },
         "wind_uncertainty": {
-          "value": 6.49,
+          "value": 6.99,
           "unit": "m/s",
           "note": "ensemble spread"
         },
         "driver_anchor_eur_mwh": {
-          "value": 9.35,
+          "value": 17.21,
           "unit": "",
           "note": "forecast_engine driver"
         },
@@ -1595,81 +2031,81 @@
           "note": "forecast_engine driver"
         },
         "driver_avg_load_mw": {
-          "value": 9481.0,
+          "value": 9770.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_wind_mw": {
-          "value": 3036.0,
+          "value": 4588.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_net_load_mw": {
-          "value": 6402.0,
+          "value": 5094.0,
           "unit": "",
           "note": "forecast_engine driver"
         }
       },
       "change_from_previous": {
-        "old": 3.66,
-        "new": 3.99,
-        "delta": 0.33
+        "old": 3.99,
+        "new": 2.7,
+        "delta": -1.28
       }
     },
     {
       "date": "2026-11-06",
       "d_plus": 9,
       "value_type": "forecast",
-      "p10_snt_kwh_vat": -6.35,
-      "p50_snt_kwh_vat": 4.05,
-      "p90_snt_kwh_vat": 11.11,
-      "baseline_snt_kwh_vat": 1.18,
-      "cheapest_3h": "03:00-06:00",
+      "p10_snt_kwh_vat": -7.49,
+      "p50_snt_kwh_vat": 2.88,
+      "p90_snt_kwh_vat": 11.69,
+      "baseline_snt_kwh_vat": 2.16,
+      "cheapest_3h": "02:00-05:00",
       "expensive_3h": "17:00-20:00",
       "risk": "korkea",
       "uncertainty": {
-        "weather_component_snt_kwh": 6.2,
-        "model_component_snt_kwh": 2.53,
-        "half_width_snt_kwh": 8.73
+        "weather_component_snt_kwh": 6.76,
+        "model_component_snt_kwh": 2.83,
+        "half_width_snt_kwh": 9.59
       },
       "diagnostics": {
         "p10_price": {
-          "value": -6.35,
+          "value": -7.49,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p50_price": {
-          "value": 4.05,
+          "value": 2.88,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p90_price": {
-          "value": 11.11,
+          "value": 11.69,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "baseline_price": {
-          "value": 1.18,
+          "value": 2.16,
           "unit": "snt/kWh",
           "note": "baseline"
         },
         "temperature": {
-          "value": 1.85,
+          "value": 4.18,
           "unit": "C",
           "note": "paivakeskiarvo"
         },
         "wind_100m": {
-          "value": 5.47,
+          "value": 8.58,
           "unit": "m/s",
           "note": "paivakeskiarvo"
         },
         "wind_uncertainty": {
-          "value": 8.12,
+          "value": 7.82,
           "unit": "m/s",
           "note": "ensemble spread"
         },
         "driver_anchor_eur_mwh": {
-          "value": 9.35,
+          "value": 17.21,
           "unit": "",
           "note": "forecast_engine driver"
         },
@@ -1679,81 +2115,81 @@
           "note": "forecast_engine driver"
         },
         "driver_avg_load_mw": {
-          "value": 9500.0,
+          "value": 9693.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_wind_mw": {
-          "value": 3038.0,
+          "value": 4478.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_net_load_mw": {
-          "value": 6412.0,
+          "value": 5146.0,
           "unit": "",
           "note": "forecast_engine driver"
         }
       },
       "change_from_previous": {
-        "old": 3.78,
-        "new": 4.05,
-        "delta": 0.27
+        "old": 4.05,
+        "new": 2.88,
+        "delta": -1.17
       }
     },
     {
       "date": "2026-11-07",
       "d_plus": 10,
       "value_type": "forecast",
-      "p10_snt_kwh_vat": -6.9,
-      "p50_snt_kwh_vat": 3.79,
-      "p90_snt_kwh_vat": 11.27,
-      "baseline_snt_kwh_vat": 1.18,
+      "p10_snt_kwh_vat": -8.42,
+      "p50_snt_kwh_vat": 3.72,
+      "p90_snt_kwh_vat": 11.67,
+      "baseline_snt_kwh_vat": 2.16,
       "cheapest_3h": "02:00-05:00",
       "expensive_3h": "17:00-20:00",
       "risk": "korkea",
       "uncertainty": {
-        "weather_component_snt_kwh": 6.72,
-        "model_component_snt_kwh": 2.36,
-        "half_width_snt_kwh": 9.08
+        "weather_component_snt_kwh": 7.38,
+        "model_component_snt_kwh": 2.66,
+        "half_width_snt_kwh": 10.05
       },
       "diagnostics": {
         "p10_price": {
-          "value": -6.9,
+          "value": -8.42,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p50_price": {
-          "value": 3.79,
+          "value": 3.72,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p90_price": {
-          "value": 11.27,
+          "value": 11.67,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "baseline_price": {
-          "value": 1.18,
+          "value": 2.16,
           "unit": "snt/kWh",
           "note": "baseline"
         },
         "temperature": {
-          "value": 0.24,
+          "value": 3.34,
           "unit": "C",
           "note": "paivakeskiarvo"
         },
         "wind_100m": {
-          "value": 3.65,
+          "value": 7.82,
           "unit": "m/s",
           "note": "paivakeskiarvo"
         },
         "wind_uncertainty": {
-          "value": 8.07,
+          "value": 7.79,
           "unit": "m/s",
           "note": "ensemble spread"
         },
         "driver_anchor_eur_mwh": {
-          "value": 9.35,
+          "value": 17.21,
           "unit": "",
           "note": "forecast_engine driver"
         },
@@ -1763,81 +2199,81 @@
           "note": "forecast_engine driver"
         },
         "driver_avg_load_mw": {
-          "value": 9253.0,
+          "value": 9326.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_wind_mw": {
-          "value": 3055.0,
+          "value": 2574.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_net_load_mw": {
-          "value": 6149.0,
+          "value": 6673.0,
           "unit": "",
           "note": "forecast_engine driver"
         }
       },
       "change_from_previous": {
-        "old": 3.52,
-        "new": 3.79,
-        "delta": 0.27
+        "old": 3.79,
+        "new": 3.72,
+        "delta": -0.07
       }
     },
     {
       "date": "2026-11-08",
       "d_plus": 11,
       "value_type": "forecast",
-      "p10_snt_kwh_vat": -5.94,
-      "p50_snt_kwh_vat": 4.18,
-      "p90_snt_kwh_vat": 11.46,
-      "baseline_snt_kwh_vat": 1.18,
+      "p10_snt_kwh_vat": -7.14,
+      "p50_snt_kwh_vat": 3.78,
+      "p90_snt_kwh_vat": 11.75,
+      "baseline_snt_kwh_vat": 2.16,
       "cheapest_3h": "02:00-05:00",
       "expensive_3h": "17:00-20:00",
       "risk": "korkea",
       "uncertainty": {
-        "weather_component_snt_kwh": 6.57,
-        "model_component_snt_kwh": 2.13,
-        "half_width_snt_kwh": 8.7
+        "weather_component_snt_kwh": 6.99,
+        "model_component_snt_kwh": 2.45,
+        "half_width_snt_kwh": 9.44
       },
       "diagnostics": {
         "p10_price": {
-          "value": -5.94,
+          "value": -7.14,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p50_price": {
-          "value": 4.18,
+          "value": 3.78,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "p90_price": {
-          "value": 11.46,
+          "value": 11.75,
           "unit": "snt/kWh",
           "note": "paivaennuste"
         },
         "baseline_price": {
-          "value": 1.18,
+          "value": 2.16,
           "unit": "snt/kWh",
           "note": "baseline"
         },
         "temperature": {
-          "value": 0.52,
+          "value": 3.3,
           "unit": "C",
           "note": "paivakeskiarvo"
         },
         "wind_100m": {
-          "value": 3.79,
+          "value": 7.4,
           "unit": "m/s",
           "note": "paivakeskiarvo"
         },
         "wind_uncertainty": {
-          "value": 7.42,
+          "value": 6.82,
           "unit": "m/s",
           "note": "ensemble spread"
         },
         "driver_anchor_eur_mwh": {
-          "value": 9.35,
+          "value": 17.21,
           "unit": "",
           "note": "forecast_engine driver"
         },
@@ -1847,26 +2283,106 @@
           "note": "forecast_engine driver"
         },
         "driver_avg_load_mw": {
-          "value": 9258.0,
+          "value": 9281.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_wind_mw": {
-          "value": 2600.0,
+          "value": 2603.0,
           "unit": "",
           "note": "forecast_engine driver"
         },
         "driver_avg_net_load_mw": {
-          "value": 6630.0,
+          "value": 6635.0,
           "unit": "",
           "note": "forecast_engine driver"
         }
       },
       "change_from_previous": {
-        "old": 3.75,
-        "new": 4.18,
-        "delta": 0.43
+        "old": 4.18,
+        "new": 3.78,
+        "delta": -0.4
       }
+    },
+    {
+      "date": "2026-11-09",
+      "d_plus": 12,
+      "value_type": "forecast",
+      "p10_snt_kwh_vat": -8.8,
+      "p50_snt_kwh_vat": 4.14,
+      "p90_snt_kwh_vat": 13.05,
+      "baseline_snt_kwh_vat": 2.16,
+      "cheapest_3h": "00:00-03:00",
+      "expensive_3h": "17:00-20:00",
+      "risk": "korkea",
+      "uncertainty": {
+        "weather_component_snt_kwh": 8.74,
+        "model_component_snt_kwh": 2.19,
+        "half_width_snt_kwh": 10.93
+      },
+      "diagnostics": {
+        "p10_price": {
+          "value": -8.8,
+          "unit": "snt/kWh",
+          "note": "paivaennuste"
+        },
+        "p50_price": {
+          "value": 4.14,
+          "unit": "snt/kWh",
+          "note": "paivaennuste"
+        },
+        "p90_price": {
+          "value": 13.05,
+          "unit": "snt/kWh",
+          "note": "paivaennuste"
+        },
+        "baseline_price": {
+          "value": 2.16,
+          "unit": "snt/kWh",
+          "note": "baseline"
+        },
+        "temperature": {
+          "value": 2.17,
+          "unit": "C",
+          "note": "paivakeskiarvo"
+        },
+        "wind_100m": {
+          "value": 10.53,
+          "unit": "m/s",
+          "note": "paivakeskiarvo"
+        },
+        "wind_uncertainty": {
+          "value": 8.18,
+          "unit": "m/s",
+          "note": "ensemble spread"
+        },
+        "driver_anchor_eur_mwh": {
+          "value": 17.21,
+          "unit": "",
+          "note": "forecast_engine driver"
+        },
+        "driver_neighbor_context_eur_mwh": {
+          "value": 15.0,
+          "unit": "",
+          "note": "forecast_engine driver"
+        },
+        "driver_avg_load_mw": {
+          "value": 9601.0,
+          "unit": "",
+          "note": "forecast_engine driver"
+        },
+        "driver_avg_wind_mw": {
+          "value": 2753.0,
+          "unit": "",
+          "note": "forecast_engine driver"
+        },
+        "driver_avg_net_load_mw": {
+          "value": 6775.0,
+          "unit": "",
+          "note": "forecast_engine driver"
+        }
+      },
+      "change_from_previous": null
     }
   ]
 }
