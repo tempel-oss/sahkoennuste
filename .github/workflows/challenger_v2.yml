@@ -1,65 +1,71 @@
-name: Challenger v0.2 validation
+name: Challenger fixed export 41243159131
 on:
   workflow_dispatch:
   push:
-    paths:
-      - '.github/workflows/challenger_v2.yml'
-      - 'src/electricity_forecaster/challenger_v2.py'
-      - 'src/electricity_forecaster/shadow_store.py'
-      - 'src/electricity_forecaster/issue_slots.py'
-      - 'src/electricity_forecaster/db.py'
-      - 'src/electricity_forecaster/forecast_engine.py'
-      - 'src/electricity_forecaster/production_output.py'
-      - 'scripts/production_runner.py'
-      - 'research/challenger_v2_research.py'
-      - 'research/validate_shadow_v2.py'
-      - 'config/challenger_v2.json'
-      - 'requirements-challenger-v2.txt'
-      - 'tests/**'
+    branches: ['research/export-41243159131-challenger']
+    paths: ['.github/workflows/challenger_v2.yml']
 permissions:
   contents: read
+  actions: read
 jobs:
-  validate:
+  train:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
       OMP_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '2'
+      MATCHED_CACHE: forecast-db-41209280706
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install reproducible ML dependencies
-        run: python -m pip install -r requirements-challenger-v2.txt
-      - name: Verify leakage controls and append-only shadow capture
-        run: python -m unittest discover -s tests -v
-      - name: Verify original Challenger regression
-        run: python test_synthetic.py
+      - run: python -m pip install -r requirements-challenger-v2.txt
+      - run: python -m unittest discover -s tests -v
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: '13057673798'
+          run-id: '41243159131'
+          github-token: ${{ github.token }}
+          path: fixed_export
+          merge-multiple: true
       - uses: actions/cache/restore@v4
-        id: restore
         with:
           path: data/electricity_forecaster.sqlite3
-          key: challenger-v2-validation-${{ github.run_id }}
-          restore-keys: |
-            forecast-db-
+          key: forecast-db-41209280706
           fail-on-cache-miss: true
-      - name: Evaluate on disposable cloud database copy
-        shell: bash
-        env:
-          MATCHED_CACHE: ${{ steps.restore.outputs.cache-matched-key }}
+      - name: Verify fixed export equals original cache tables
         run: |
+          python - <<'PY'
+          import sqlite3,json,pathlib
+          e=sqlite3.connect('file:fixed_export/cloud_training_export.sqlite3?mode=ro',uri=True)
+          c=sqlite3.connect('file:data/electricity_forecaster.sqlite3?mode=ro',uri=True)
+          result={}
+          for t in ['price_forecast_runs','price_forecasts_hourly']:
+              cols=[r[1] for r in e.execute('pragma table_info('+t+')')]
+              q='select '+','.join(cols)+' from '+t
+              er=sorted(e.execute(q).fetchall(),key=repr)
+              cr=sorted(c.execute(q).fetchall(),key=repr)
+              assert er==cr,t+' differs from pinned export'
+              result[t]=len(er)
+          for t in ['market_prices','price_runs']:
+              result[t]=c.execute('select count(*) from '+t).fetchone()[0]
+              assert result[t]>0
+          pathlib.Path('research_results').mkdir(exist_ok=True)
+          pathlib.Path('research_results/source_verification.json').write_text(json.dumps(result,indent=2))
+          print(json.dumps(result))
+          PY
+      - name: Train and compare with frozen historical holdout
+        run: |
+          set -o pipefail
           python research/challenger_v2_research.py | tee research_v2_summary.log
-          selection="research_results/challenger_v2/selection.json"
-          if [ -f config/challenger_v2.json ]; then selection="config/challenger_v2.json"; fi
-          python research/validate_shadow_v2.py --selection "$selection" | tee research_v2_smoke.log
           cat research_results/challenger_v2/summary.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Preserve aggregate reports and frozen selection
+      - name: Save research results only
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: challenger-v02-validation-${{ github.run_id }}
+          name: challenger-fixed-export-41243159131-${{ github.run_id }}
           path: |
-            research_results/challenger_v2/
+            research_results/
             research_v2_summary.log
-            research_v2_smoke.log
           retention-days: 90
