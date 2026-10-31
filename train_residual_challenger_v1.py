@@ -199,7 +199,9 @@ def _load_matrix(path: Path) -> pd.DataFrame:
     df["target_doy_sin"] = np.sin(2 * np.pi * doy / 365.25)
     df["target_doy_cos"] = np.cos(2 * np.pi * doy / 365.25)
     df["target_is_weekend"] = (dow >= 5).astype(int)
-    df["issue_slot"] = np.where(local_issue.dt.hour < 12, "morning", "afternoon")
+    if "issue_slot" not in df:
+        df["issue_slot"] = "unknown"
+    df["issue_slot"] = df["issue_slot"].where(df["issue_slot"].isin(["morning", "afternoon"]), "unknown")
     df["issue_slot_afternoon"] = (df["issue_slot"] == "afternoon").astype(int)
     df["lead_hours"] = (
         (df["target_time"] - df["issue_time"]) / pd.Timedelta(hours=1)

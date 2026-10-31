@@ -39,7 +39,9 @@ def hourly_actuals(prices):
 
 def research(db_path, work):
     with contextlib.closing(sqlite3.connect(Path(db_path).resolve().as_uri() + '?mode=ro', uri=True)) as con:
-        forecasts = pd.read_sql_query('''SELECT f.*, r.issue_time
+        columns = {r[1] for r in con.execute('PRAGMA table_info(price_forecast_runs)')}
+        slots = ', r.issue_slot, r.issue_slot_source' if 'issue_slot_source' in columns else ''
+        forecasts = pd.read_sql_query(f'''SELECT f.*, r.issue_time{slots}
             FROM price_forecasts_hourly f JOIN price_forecast_runs r
             ON r.forecast_run_id=f.forecast_run_id
             WHERE r.model_name='fundamental_baseline' AND r.model_version='0.7.1' ''', con)
@@ -56,7 +58,7 @@ def research(db_path, work):
     merged = forecasts.merge(hours, on='target_time', validate='many_to_one')
     merged = merged[merged.target_time > merged.issue_time].copy()
     # Only numeric model features plus required identifiers remain in the temporary matrix.
-    cols = list(dict.fromkeys(model.REQUIRED + [c for c in model.BASE_FEATURES if c in merged]))
+    cols = list(dict.fromkeys(model.REQUIRED + [c for c in model.BASE_FEATURES + ['issue_slot', 'issue_slot_source'] if c in merged]))
     matrix = work / 'matrix.csv'
     merged[cols].to_csv(matrix, index=False)
     df = model._load_matrix(matrix)
