@@ -6,6 +6,8 @@ No API token or API error means no confirmed events, never a claim of no outages
 from __future__ import annotations
 
 import json
+import io
+import zipfile
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -62,6 +64,25 @@ def _interval(node):
     if start and end:
         return _time(start), _time(end)
     return None
+
+
+def _unpack_response(raw):
+    """Read one bounded XML document from an ENTSO-E ZIP response."""
+    if not raw.startswith(b"PK"):
+        return raw
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        members = [item for item in archive.infolist()
+                   if not item.is_dir() and item.filename.lower().endswith(".xml")]
+        if len(members) != 1:
+            raise ValueError("ZIP must contain exactly one XML document")
+        item = members[0]
+        if item.file_size > MAX_RESPONSE:
+            raise ValueError("Uncompressed XML too large")
+        with archive.open(item) as stream:
+            content = stream.read(MAX_RESPONSE + 1)
+        if len(content) > MAX_RESPONSE:
+            raise ValueError("Uncompressed XML too large")
+        return content
 
 
 def parse_notices(xml_bytes, collected_at, document_type, border=None, flow=None):
@@ -191,8 +212,9 @@ def collect(now=None, token=None, opener=urlopen, output=OUTPUT):
                 req = Request(API + "?" + urlencode(params),
                               headers={"User-Agent": "Sahkoennuste-MarketEvents/1.1"})
                 with opener(req, timeout=25) as response:
-                    content_type = response.headers.get("Content-Type", "")
-                    content_encoding = response.headers.get("Content-Encoding", "")
+                    headers = getattr(response, "headers", {})
+                    content_type = headers.get("Content-Type", "")
+                    content_encoding = headers.get("Content-Encoding", "")
                     raw = response.read(MAX_RESPONSE + 1)
                 # Print only protocol metadata and a safe byte signature.
                 if raw.lstrip()[:1] != b"<":
@@ -212,9 +234,9 @@ def collect(now=None, token=None, opener=urlopen, output=OUTPUT):
                           + " encoding=" + ("gzip" if "gzip" in content_encoding.lower()
                                             else "other" if content_encoding else "none"))
                 try:
-                    parsed = parse_notices(raw, now, doc_type, border=border,
+                    parsed = parse_notices(_unpack_response(raw), now, doc_type, border=border,
                         flow=domains.get("out_Domain", "")+"-"+domains.get("in_Domain", ""))
-                except (ET.ParseError, ValueError) as exc:
+                except (ET.ParseError, ValueError, zipfile.BadZipFile, OSError) as exc:
                     try:
                         root = ET.fromstring(raw)
                         tag = _name(root.tag)
