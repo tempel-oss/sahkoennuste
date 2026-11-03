@@ -58,6 +58,18 @@ class MarketEventsTest(unittest.TestCase):
         matched = po._event_days(event, days)
         self.assertEqual([x["d_plus"] for x in matched], [2, 3, 4])
 
+    def test_coverage_is_stale_when_source_timestamp_is_old(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "data").mkdir()
+            (root / "data" / "market_events.json").write_text(
+                json.dumps({"collected_at_utc":"2026-11-01T12:00:00Z",
+                            "status":"ok", "queries_succeeded":8,
+                            "queries_total":8, "events":[]}), encoding="utf-8")
+            with patch.object(po, "ROOT", root):
+                result = po._market_event_coverage("2026-11-03T12:00:00Z")
+            self.assertEqual(result["status"], "stale")
+
     def test_event_text_is_escaped(self):
         event = {"title": "<script>alert(1)</script>",
                  "description": "<b>unsafe</b>", "start_utc": "2026-11-02T12:00:00+00:00",
