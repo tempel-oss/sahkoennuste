@@ -66,8 +66,16 @@ def parse_notices(xml_bytes, collected_at, document_type):
     root = ET.fromstring(xml_bytes)
     docs = ([root] if _name(root.tag) == "Unavailability_MarketDocument"
             else [n for n in root.iter() if _name(n.tag) == "Unavailability_MarketDocument"])
-    if not docs and _name(root.tag) not in ("Acknowledgement_MarketDocument", "Acknowledgement_MarketDocument"):
-        raise ValueError("Unexpected outage response")
+    if not docs:
+        # ENTSO-E may respond with an acknowledgement instead of outage data.
+        # Only the explicit "no matching data" code is a valid empty result.
+        if _name(root.tag) == "Acknowledgement_MarketDocument":
+            reasons = [(_value(n, "code"), _value(n, "text"))
+                       for n in root.iter() if _name(n.tag) == "Reason"]
+            if any(code == "999" and "no matching data" in message.lower()
+                   for code, message in reasons):
+                return []
+        raise ValueError("Unexpected outage response or source acknowledgement")
     events = []
     for doc in docs:
         if _value(doc, "type") not in ("A80", "A77"):
