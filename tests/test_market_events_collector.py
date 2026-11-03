@@ -1,5 +1,7 @@
 """Offline regression tests for ENTSO-E market-event collection."""
 import importlib.util
+import io
+import zipfile
 import json
 import tempfile
 import unittest
@@ -46,6 +48,20 @@ class FakeResponse:
 
 
 class MarketEventsCollectorTest(unittest.TestCase):
+    def test_zip_xml_is_unpacked(self):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("notice.xml", XML)
+        self.assertEqual(collector._unpack_response(buffer.getvalue()), XML)
+
+    def test_zip_multiple_xml_files_is_rejected(self):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("one.xml", XML)
+            archive.writestr("two.xml", XML)
+        with self.assertRaises(ValueError):
+            collector._unpack_response(buffer.getvalue())
+
     def test_parse_generation_notice(self):
         events = collector.parse_notices(
             XML, datetime(2026, 11, 3, 5, tzinfo=timezone.utc), "A80")
