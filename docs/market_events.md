@@ -66,3 +66,25 @@ julkaisema ilmoitus ei yksin todista hinnanmuutoksen syy-seuraussuhdetta.
 Huomaa, että automaattinen keräin kirjoittaa ajantasaiset havainnot
 `data/market_events.json`-tiedostoon; tiedostoa ei tallenneta
 pitkäaikaiseen historiavarastoon tällä toteutuksella.
+
+## Siirtoyhteydet ja hintamuutoksen ajallinen osuma (vaihe 3)
+
+Keräin hakee lisäksi A78-siirtoinfrastruktuurin käytettävyysilmoitukset
+Suomen ja SE1:n, SE3:n sekä Viron tarjousalueiden väliltä molempiin
+suuntiin. Lähdekyselyjen onnistumismäärä näytetään ennustesivulla.
+Osittainen onnistuminen ei tarkoita kattavaa markkinatilannekuvaa.
+
+Jokaiselle vahvistetulle tapahtumalle lasketaan leikkaus ennusteen
+D+2–D+12-päiviin Suomen aikavyöhykkeessä. Ajallinen päällekkäisyys on
+**havainto**, ei tilastollinen syy-seurauspäätelmä tai arvio
+hintavaikutuksen suuruudesta. A78-ilmoituksesta ei myöskään suoraan
+päätellä kuinka monta megawattia siirtokapasiteetti väheni.
+
+Tapahtuma-aineiston tuoreus ilmoitetaan erikseen, eikä vanhentuneen
+syötteen puuttuvia havaintoja esitetä todisteena häiriöttömyydestä.
+
+**Ennen tuotantoon vientiä:** varmistetaan ENTSO-E:n todellisten
+A78/A80/A77-vastausten muodot ja rajapintaoikeudet, siirtoyhteyksien
+vastavuoroisten kyselyjen kattavuus, peruttujen ilmoitusten tulkinta
+sekä arkistoitavan tiedon vaatimukset. Pilviajon integraatiotesti
+ja julkaisun luotettavuus arvioidaan erikseen.
