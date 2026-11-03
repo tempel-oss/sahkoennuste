@@ -64,7 +64,7 @@ def _interval(node):
     return None
 
 
-def parse_notices(xml_bytes, collected_at, document_type, border=None):
+def parse_notices(xml_bytes, collected_at, document_type, border=None, flow=None):
     """Extract explicit dated outage notices; never infer capacity or price."""
     if len(xml_bytes) > MAX_RESPONSE:
         raise ValueError("Response too large")
@@ -124,7 +124,7 @@ def parse_notices(xml_bytes, collected_at, document_type, border=None):
                 description = note or "ENTSO-E:n julkaisema tuotantoyksikön käytettävyystieto."
             series_id = _value(item, "mRID") if item is not doc else "document"
             events.append({
-                "event_id": f"entsoe-{document_type}-{reference}-{series_id}-{start.isoformat()}",
+                "event_id": f"entsoe-{document_type}-{border or ''}-{flow or ''}-{reference}-{series_id}-{start.isoformat()}",
                 "title": title[:160], "description": description[:350],
                 "source_url": TRANSPARENCY_LINK,
                 "source_name": "ENTSO-E Transparency Platform",
@@ -160,7 +160,8 @@ def collect(now=None, token=None, opener=urlopen, output=OUTPUT):
                               headers={"User-Agent": "Sahkoennuste-MarketEvents/1.1"})
                 with opener(req, timeout=25) as response:
                     raw = response.read(MAX_RESPONSE + 1)
-                results.extend(parse_notices(raw, now, doc_type, border=border))
+                results.extend(parse_notices(raw, now, doc_type, border=border,
+                                                    flow=domains.get("out_Domain", "")+"-"+domains.get("in_Domain", "")))
             except (HTTPError, URLError, TimeoutError, ValueError, ET.ParseError, OSError):
                 # Do not log the request URL: it contains the API secret.
                 errors.append(doc_type + ("_" + border if border else ""))
