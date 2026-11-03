@@ -138,6 +138,35 @@ def parse_notices(xml_bytes, collected_at, document_type, border=None, flow=None
     return events
 
 
+def _safe_error_detail(exc):
+    """Diagnostics restricted to codes and exception classes; never URLs or tokens."""
+    if isinstance(exc, HTTPError):
+        code = int(exc.code)
+        reason_codes = []
+        try:
+            body = exc.read(32768)
+            root = ET.fromstring(body)
+            reason_codes = sorted(set(
+                str(n.text).strip() for n in root.iter()
+                if _name(n.tag) == "code" and n.text
+                and str(n.text).strip().isdigit()
+                and len(str(n.text).strip()) <= 4
+            ))
+        except (OSError, ValueError, ET.ParseError):
+            pass
+        return "HTTP_" + str(code) + (
+            "_ENTSOE_" + ",".join(reason_codes) if reason_codes else "")
+    if isinstance(exc, URLError):
+        return "NETWORK_" + type(exc.reason).__name__
+    if isinstance(exc, TimeoutError):
+        return "TIMEOUT"
+    if isinstance(exc, ET.ParseError):
+        return "INVALID_XML"
+    if isinstance(exc, ValueError):
+        return "INVALID_RESPONSE"
+    return type(exc).__name__
+
+
 def collect(now=None, token=None, opener=urlopen, output=OUTPUT):
     now = now or datetime.now(timezone.utc)
     token = token if token is not None else os.getenv("ENTSOE_API_TOKEN", "")
@@ -162,9 +191,12 @@ def collect(now=None, token=None, opener=urlopen, output=OUTPUT):
                     raw = response.read(MAX_RESPONSE + 1)
                 results.extend(parse_notices(raw, now, doc_type, border=border,
                                                     flow=domains.get("out_Domain", "")+"-"+domains.get("in_Domain", "")))
-            except (HTTPError, URLError, TimeoutError, ValueError, ET.ParseError, OSError):
-                # Do not log the request URL: it contains the API secret.
-                errors.append(doc_type + ("_" + border if border else ""))
+            except (HTTPError, URLError, TimeoutError, ValueError, ET.ParseError, OSError) as exc:
+                # Log only validated status/reason codes; never request URLs or tokens.
+                direction = ("_out" if domains.get("out_Domain") == FI_ZONE
+                             else "_in") if border else ""
+                errors.append(doc_type + ("_" + border if border else "")
+                              + direction + ":" + _safe_error_detail(exc))
     else:
         errors.append("missing_token")
     unique = {event["event_id"]: event for event in results}
@@ -187,6 +219,8 @@ def collect(now=None, token=None, opener=urlopen, output=OUTPUT):
     tmp.replace(output)
     print(f"[MARKET_EVENTS] status={status} events={len(items)} "
           f"queries={snapshot['queries_succeeded']}/{len(queries)}")
+    if errors:
+        print("[MARKET_EVENTS] failures=" + ";".join(errors))
     return {"status": status, "events": len(items),
             "queries_succeeded": snapshot["queries_succeeded"],
             "queries_total": len(queries)}
