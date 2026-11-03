@@ -214,6 +214,7 @@ def build_latest_outputs():
                "trained_ml":meta["model_name"]!="fundamental_baseline"},
       "shadow_comparison":safe_current_summary(),
       "model_status":model_status(),"forecast_quality":quality_summary(),"previous_forecast_run_id":prev["forecast_run_id"] if prev else None,
+      "market_event_coverage":_market_event_coverage(issue_dt.isoformat()),
       "market_events":_verified_market_events(issue_dt.isoformat()),
       "data_quality":meta["data_quality"],"freshness":_freshness(con),
       "published_day_ahead":_published_prices(con,issue_slot,issue_dt),"days":days
@@ -453,6 +454,28 @@ def _factor_value(dg,key,unit):
     if unit=="MW" and abs(val)>=1000:
         return val,_fmt_fi(val/1000,1),"GW"
     return val,_fmt_fi(val,1),unit
+
+
+def _market_event_coverage(issue_time):
+    """Source coverage, distinct from the presence or absence of outages."""
+    feed = ROOT / "data" / "market_events.json"
+    fallback = {"status": "unavailable", "queries_succeeded": 0,
+                "queries_total": 0}
+    try:
+        data = json.loads(feed.read_text(encoding="utf-8"))
+        observed = _parse_dt(data["collected_at_utc"])
+        issue = _parse_dt(issue_time)
+        if observed > issue + timedelta(minutes=5) or issue-observed > timedelta(hours=3):
+            return {"status": "stale", "queries_succeeded": 0,
+                    "queries_total": data.get("queries_total", 0)}
+        status = data.get("status")
+        if status not in ("ok", "partial", "unavailable"):
+            return fallback
+        return {"status": status,
+                "queries_succeeded": int(data.get("queries_succeeded", 0)),
+                "queries_total": int(data.get("queries_total", 0))}
+    except (OSError, ValueError, TypeError, KeyError):
+        return fallback
 
 
 def _verified_market_events(issue_time, limit=5):
@@ -954,6 +977,21 @@ def _render_html(p):
     if para2:
         narrative_html+=f'<p style="font-size:17px;line-height:1.65;color:#3A382F;margin:0;">{html.escape(para2)}</p>'
 
+    coverage=p.get("market_event_coverage",{})
+    checked=coverage.get("queries_succeeded",0)
+    total=coverage.get("queries_total",0)
+    state=coverage.get("status","unavailable")
+    status_text=(
+        f"Tapahtumatietojen lähdekyselyt onnistuneet {checked}/{total}."
+        if state=="ok" else
+        f"Tapahtumatietojen lähdekyselyt osittaiset ({checked}/{total})."
+        if state=="partial" else
+        "Tapahtumatiedot ovat vanhentuneet; uusia poikkeamia ei ole voitu varmentaa."
+        if state=="stale" else
+        "Tapahtumatietoja ei voitu tarkistaa tässä ennusteajossa."
+    )
+    narrative_html+=('<p style="font-size:13px;color:#6B6558;margin:12px 0;">'
+                     +html.escape(status_text)+'</p>')
     narrative_html+=_market_events_html(p.get("market_events",[]))
 
     forecast_days=p.get("days",[])
