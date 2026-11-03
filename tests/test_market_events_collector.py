@@ -52,15 +52,14 @@ class MarketEventsCollectorTest(unittest.TestCase):
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
             archive.writestr("notice.xml", XML)
-        self.assertEqual(collector._unpack_response(buffer.getvalue()), XML)
+        self.assertEqual(collector._unpack_response(buffer.getvalue()), [XML])
 
-    def test_zip_multiple_xml_files_is_rejected(self):
+    def test_zip_multiple_xml_files_are_supported(self):
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w") as archive:
             archive.writestr("one.xml", XML)
             archive.writestr("two.xml", XML)
-        with self.assertRaises(ValueError):
-            collector._unpack_response(buffer.getvalue())
+        self.assertEqual(collector._unpack_response(buffer.getvalue()), [XML, XML])
 
     def test_parse_generation_notice(self):
         events = collector.parse_notices(
