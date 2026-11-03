@@ -163,6 +163,9 @@ def _safe_error_detail(exc):
     if isinstance(exc, ET.ParseError):
         return "INVALID_XML"
     if isinstance(exc, ValueError):
+        detail = str(exc)
+        if detail.startswith("SOURCE_") and all(ch.isalnum() or ch in "_," for ch in detail):
+            return detail[:90]
         return "INVALID_RESPONSE"
     return type(exc).__name__
 
@@ -189,8 +192,22 @@ def collect(now=None, token=None, opener=urlopen, output=OUTPUT):
                               headers={"User-Agent": "Sahkoennuste-MarketEvents/1.1"})
                 with opener(req, timeout=25) as response:
                     raw = response.read(MAX_RESPONSE + 1)
-                results.extend(parse_notices(raw, now, doc_type, border=border,
-                                                    flow=domains.get("out_Domain", "")+"-"+domains.get("in_Domain", "")))
+                try:
+                    parsed = parse_notices(raw, now, doc_type, border=border,
+                        flow=domains.get("out_Domain", "")+"-"+domains.get("in_Domain", ""))
+                except (ET.ParseError, ValueError) as exc:
+                    try:
+                        root = ET.fromstring(raw)
+                        tag = _name(root.tag)
+                        kind = ("ACK" if "Acknowledg" in tag else "HTML" if tag.lower() == "html" else "OTHER_XML")
+                        codes = sorted(set((n.text or "").strip() for n in root.iter()
+                            if _name(n.tag) == "code" and n.text and n.text.strip().isdigit()
+                            and len(n.text.strip()) <= 4))
+                        detail = kind + ("_CODE_" + ",".join(codes) if codes else "")
+                    except ET.ParseError:
+                        detail = "MALFORMED_XML"
+                    raise ValueError("SOURCE_" + detail) from exc
+                results.extend(parsed)
             except (HTTPError, URLError, TimeoutError, ValueError, ET.ParseError, OSError) as exc:
                 # Log only validated status/reason codes; never request URLs or tokens.
                 direction = ("_out" if domains.get("out_Domain") == FI_ZONE
