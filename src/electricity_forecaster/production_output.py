@@ -218,6 +218,8 @@ def build_latest_outputs():
       "data_quality":meta["data_quality"],"freshness":_freshness(con),
       "published_day_ahead":_published_prices(con,issue_slot,issue_dt),"days":days
     }
+    for event in payload["market_events"]:
+        event["affected_days"] = _event_days(event, days)
     con.close()
     jp=OUTPUT_DIR/"latest_forecast.json"; jp.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding="utf-8")
     hp=OUTPUT_DIR/"latest_forecast.html"; hp.write_text(_render_html(payload),encoding="utf-8")
@@ -503,11 +505,30 @@ def _verified_market_events(issue_time, limit=5):
                 "observed_at_utc":observed.isoformat(),
                 "price_direction":effect,
                 "description":str(e.get("description") or "")[:350],
+                "category":str(e.get("category") or "other")[:80],
+                "event_id":str(e.get("event_id") or "")[:240],
             })
         output.sort(key=lambda e:e["observed_at_utc"], reverse=True)
         return output[:limit]
     except (ValueError, TypeError, KeyError, OSError):
         return []
+
+
+def _event_days(event, days):
+    """Forecast days intersected by the dated outage, in Helsinki local time."""
+    from datetime import date, time
+    start = _parse_dt(event["start_utc"])
+    end = _parse_dt(event["end_utc"]) if event.get("end_utc") else None
+    matches = []
+    for day in days:
+        target = date.fromisoformat(day["date"])
+        local_start = datetime.combine(target, time.min, tzinfo=HELSINKI)
+        local_end = datetime.combine(target + timedelta(days=1), time.min,
+                                     tzinfo=HELSINKI)
+        lo, hi = local_start.astimezone(timezone.utc), local_end.astimezone(timezone.utc)
+        if start < hi and (end is None or end > lo):
+            matches.append({"date": target.isoformat(), "d_plus": day.get("d_plus")})
+    return matches
 
 
 def _market_events_html(events):
