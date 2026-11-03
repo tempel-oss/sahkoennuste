@@ -191,7 +191,26 @@ def collect(now=None, token=None, opener=urlopen, output=OUTPUT):
                 req = Request(API + "?" + urlencode(params),
                               headers={"User-Agent": "Sahkoennuste-MarketEvents/1.1"})
                 with opener(req, timeout=25) as response:
+                    content_type = response.headers.get("Content-Type", "")
+                    content_encoding = response.headers.get("Content-Encoding", "")
                     raw = response.read(MAX_RESPONSE + 1)
+                # Print only protocol metadata and a safe byte signature.
+                if raw.lstrip()[:1] != b"<":
+                    prefix = raw.lstrip()[:12]
+                    signature = ("gzip" if prefix.startswith(b"\\x1f\\x8b")
+                                 else "zip" if prefix.startswith(b"PK")
+                                 else "json" if prefix.startswith((b"{", b"["))
+                                 else "non_xml")
+                    print("[MARKET_EVENTS] response_format=" + doc_type
+                          + ("_" + border if border else "")
+                          + " bytes=" + str(len(raw))
+                          + " signature=" + signature
+                          + " content_type=" + ("xml" if "xml" in content_type.lower()
+                                               else "html" if "html" in content_type.lower()
+                                               else "json" if "json" in content_type.lower()
+                                               else "other")
+                          + " encoding=" + ("gzip" if "gzip" in content_encoding.lower()
+                                            else "other" if content_encoding else "none"))
                 try:
                     parsed = parse_notices(raw, now, doc_type, border=border,
                         flow=domains.get("out_Domain", "")+"-"+domains.get("in_Domain", ""))
