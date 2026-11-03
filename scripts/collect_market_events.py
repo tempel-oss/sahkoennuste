@@ -67,22 +67,26 @@ def _interval(node):
 
 
 def _unpack_response(raw):
-    """Read one bounded XML document from an ENTSO-E ZIP response."""
+    """Return bounded XML documents from a ZIP or a plain response."""
     if not raw.startswith(b"PK"):
-        return raw
+        return [raw]
+    documents = []
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         members = [item for item in archive.infolist()
                    if not item.is_dir() and item.filename.lower().endswith(".xml")]
-        if len(members) != 1:
-            raise ValueError("ZIP must contain exactly one XML document")
-        item = members[0]
-        if item.file_size > MAX_RESPONSE:
-            raise ValueError("Uncompressed XML too large")
-        with archive.open(item) as stream:
-            content = stream.read(MAX_RESPONSE + 1)
-        if len(content) > MAX_RESPONSE:
-            raise ValueError("Uncompressed XML too large")
-        return content
+        if not members or len(members) > 100:
+            raise ValueError("Invalid ZIP XML member count")
+        total = 0
+        for item in members:
+            total += item.file_size
+            if item.file_size > MAX_RESPONSE or total > MAX_RESPONSE:
+                raise ValueError("Uncompressed XML too large")
+            with archive.open(item) as stream:
+                content = stream.read(MAX_RESPONSE + 1)
+            if len(content) > MAX_RESPONSE:
+                raise ValueError("Uncompressed XML too large")
+            documents.append(content)
+    return documents
 
 
 def parse_notices(xml_bytes, collected_at, document_type, border=None, flow=None):
@@ -234,8 +238,15 @@ def collect(now=None, token=None, opener=urlopen, output=OUTPUT):
                           + " encoding=" + ("gzip" if "gzip" in content_encoding.lower()
                                             else "other" if content_encoding else "none"))
                 try:
-                    parsed = parse_notices(_unpack_response(raw), now, doc_type, border=border,
-                        flow=domains.get("out_Domain", "")+"-"+domains.get("in_Domain", ""))
+                    documents = _unpack_response(raw)
+                    if raw.startswith(b"PK"):
+                        print("[MARKET_EVENTS] zip_xml_members=" + str(len(documents))
+                              + " scope=" + doc_type + ("_" + border if border else ""))
+                    parsed = []
+                    for document in documents:
+                        parsed.extend(parse_notices(
+                            document, now, doc_type, border=border,
+                            flow=domains.get("out_Domain", "")+"-"+domains.get("in_Domain", "")))
                 except (ET.ParseError, ValueError, zipfile.BadZipFile, OSError) as exc:
                     try:
                         root = ET.fromstring(raw)
