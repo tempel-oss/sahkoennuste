@@ -70,6 +70,23 @@ class MarketEventsTest(unittest.TestCase):
                 result = po._market_event_coverage("2026-11-03T12:00:00Z")
             self.assertEqual(result["status"], "stale")
 
+    def test_recent_event_before_issue_is_visible(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "data").mkdir()
+            (root / "data" / "market_events.json").write_text(
+                json.dumps({"events": [{
+                    "title": "Verified example", "source_url": "https://example.org/notice",
+                    "source_name": "Example", "verification": "confirmed",
+                    "observed_at_utc": "2026-11-03T17:28:00Z",
+                    "start_utc": "2026-11-03T16:00:00Z",
+                    "end_utc": "2026-11-04T16:00:00Z",
+                    "price_direction": "unknown"
+                }]}), encoding="utf-8")
+            with patch.object(po, "ROOT", root):
+                found = po._verified_market_events("2026-11-03T17:29:00Z")
+            self.assertEqual(len(found), 1)
+
     def test_event_text_is_escaped(self):
         event = {"title": "<script>alert(1)</script>",
                  "description": "<b>unsafe</b>", "start_utc": "2026-11-02T12:00:00+00:00",
