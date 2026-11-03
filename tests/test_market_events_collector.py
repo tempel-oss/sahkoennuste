@@ -97,6 +97,37 @@ class MarketEventsCollectorTest(unittest.TestCase):
         self.assertEqual(collector.parse_notices(
             ack, datetime(2026, 11, 3, 5, tzinfo=timezone.utc), "A78"), [])
 
+    def test_api_request_parameters_for_transmission(self):
+        from urllib.parse import parse_qs, urlsplit
+        requests = []
+        def opener(request, timeout):
+            params = parse_qs(urlsplit(request.full_url).query)
+            requests.append(params)
+            doc = params["documentType"][0]
+            xml = XML.replace(b"<type>A80</type>", ("<type>"+doc+"</type>").encode())
+            return FakeResponse(xml)
+        with tempfile.TemporaryDirectory() as root:
+            outcome = collector.collect(
+                now=datetime(2026, 11, 3, 5, tzinfo=timezone.utc),
+                token="synthetic-token", opener=opener,
+                output=Path(root)/"events.json")
+        self.assertEqual(outcome["status"], "ok")
+        self.assertEqual(len(requests), 8)
+        transmission = [q for q in requests if q["documentType"] == ["A78"]]
+        self.assertEqual(len(transmission), 6)
+        self.assertTrue(all("in_Domain" in q and "out_Domain" in q
+                            for q in transmission))
+        self.assertTrue(all("biddingZone_Domain" not in q for q in transmission))
+
+    def test_invalid_source_response_keeps_coverage_unavailable(self):
+        with tempfile.TemporaryDirectory() as root:
+            result = collector.collect(
+                now=datetime(2026, 11, 3, 5, tzinfo=timezone.utc),
+                token="synthetic-token",
+                opener=lambda request, timeout: FakeResponse(b"<html>not XML</html>"),
+                output=Path(root)/"events.json")
+            self.assertEqual(result["status"], "unavailable")
+
     def test_successful_collection(self):
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / "events.json"
