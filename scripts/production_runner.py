@@ -135,6 +135,12 @@ try:
             return dedupe_price_forecast_scores(_c)
     step("SCORES_DEDUPE",False,dedupe_scores)
 
+    # Optional sourced outage observations: no source outage may block forecasting.
+    def refresh_market_events():
+        from collect_market_events import collect
+        return collect()
+    step("MARKET_EVENTS",False,refresh_market_events)
+
     step("CHALLENGER_REGISTRY",False,register_challenger_from_artifact)
     step("ML_TRAINING_MATRIX",False,build_training_matrix)
     step("WALK_FORWARD_BASELINE",False,walk_forward_baseline_report)
