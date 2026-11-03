@@ -60,7 +60,7 @@ class MarketEventsCollectorTest(unittest.TestCase):
             path.write_text("original", encoding="utf-8")
             result = collector.collect(token="", output=path)
             self.assertEqual(result["status"], "unavailable")
-            self.assertEqual(path.read_text(encoding="utf-8"), "original")
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["status"], "unavailable")
 
     def test_partial_source_error_does_not_publish(self):
         calls = []
@@ -77,8 +77,25 @@ class MarketEventsCollectorTest(unittest.TestCase):
                 now=datetime(2026, 11, 3, 5, tzinfo=timezone.utc),
                 token="test-secret", opener=opener, output=path)
             self.assertEqual(result["status"], "unavailable")
-            self.assertFalse(path.exists())
+            self.assertTrue(path.exists())
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["status"], "partial")
             self.assertNotIn("test-secret", json.dumps(result))
+
+    def test_parse_transmission_notice(self):
+        xml = XML.replace(b"<type>A80</type>", b"<type>A78</type>")
+        events = collector.parse_notices(
+            xml, datetime(2026, 11, 3, 5, tzinfo=timezone.utc), "A78", border="SE1")
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["category"], "transmission_unavailability")
+        self.assertIn("FI\\u2013SE1", events[0]["title"])
+        self.assertEqual(events[0]["price_direction"], "unknown")
+
+    def test_no_data_acknowledgement_is_empty(self):
+        ack = b"""<Acknowledgement_MarketDocument>
+          <Reason><code>999</code><text>No matching data found</text></Reason>
+        </Acknowledgement_MarketDocument>"""
+        self.assertEqual(collector.parse_notices(
+            ack, datetime(2026, 11, 3, 5, tzinfo=timezone.utc), "A78"), [])
 
     def test_successful_collection(self):
         with tempfile.TemporaryDirectory() as root:
@@ -90,7 +107,7 @@ class MarketEventsCollectorTest(unittest.TestCase):
                 output=path)
             self.assertEqual(result["status"], "ok")
             data = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(len(data["events"]), 2)
+            self.assertEqual(len(data["events"]), 8)
 
 
 if __name__ == "__main__":
