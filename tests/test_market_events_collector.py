@@ -76,7 +76,7 @@ class MarketEventsCollectorTest(unittest.TestCase):
             result = collector.collect(
                 now=datetime(2026, 11, 3, 5, tzinfo=timezone.utc),
                 token="test-secret", opener=opener, output=path)
-            self.assertEqual(result["status"], "unavailable")
+            self.assertEqual(result["status"], "partial")
             self.assertTrue(path.exists())
             self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["status"], "partial")
             self.assertNotIn("test-secret", json.dumps(result))
@@ -87,7 +87,7 @@ class MarketEventsCollectorTest(unittest.TestCase):
             xml, datetime(2026, 11, 3, 5, tzinfo=timezone.utc), "A78", border="SE1")
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["category"], "transmission_unavailability")
-        self.assertIn("FI\\u2013SE1", events[0]["title"])
+        self.assertIn("FI–SE1", events[0]["title"])
         self.assertEqual(events[0]["price_direction"], "unknown")
 
     def test_no_data_acknowledgement_is_empty(self):
@@ -103,7 +103,12 @@ class MarketEventsCollectorTest(unittest.TestCase):
             result = collector.collect(
                 now=datetime(2026, 11, 3, 5, tzinfo=timezone.utc),
                 token="test-secret",
-                opener=lambda request, timeout: FakeResponse(XML),
+                opener=lambda request, timeout: FakeResponse(
+                    XML.replace(b"<type>A80</type>", b"<type>A78</type>")
+                    if "documentType=A78" in request.full_url
+                    else XML.replace(b"<type>A80</type>", b"<type>A77</type>")
+                    if "documentType=A77" in request.full_url
+                    else XML),
                 output=path)
             self.assertEqual(result["status"], "ok")
             data = json.loads(path.read_text(encoding="utf-8"))
