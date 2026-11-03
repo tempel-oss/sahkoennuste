@@ -547,10 +547,17 @@ def _market_events_html(events):
         url=html.escape(e["source_url"],quote=True)
         source=html.escape(e["source_name"])
         start=html.escape(e["start_utc"][:16].replace("T"," ")+" UTC")
+        affected = e.get("affected_days", [])
+        dates = ", ".join("D+" + str(d["d_plus"]) + " (" + d["date"] + ")"
+                          for d in affected if d.get("d_plus") is not None)
+        overlap = ("<p style='font-size:13px;margin:4px 0;'>"
+                   "Ajallinen osuma ennusteeseen: " + html.escape(dates)
+                   + ". Tämä ei osoita hinnanmuutoksen syytä.</p>") if dates else ""
         parts.append(
           '<div style="border-top:1px solid #E7E3D9;padding:12px 0;">'
           f'<strong>{title}</strong> <span style="color:#6B6558;font-size:13px;">({start})</span>'
           f'<p style="margin:6px 0;font-size:15px;">{description}</p>'
+          f'{overlap}'
           f'<p style="margin:4px 0;font-size:13px;color:#6B6558;">{direction}. '
           'Vaikutuksen suuruutta ei ole kvantifioitu.</p>'
           f'<a href="{url}" rel="noopener noreferrer" target="_blank" '
