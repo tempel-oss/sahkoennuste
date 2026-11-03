@@ -128,6 +128,24 @@ class MarketEventsCollectorTest(unittest.TestCase):
                 output=Path(root)/"events.json")
             self.assertEqual(result["status"], "unavailable")
 
+    def test_http_error_diagnostics_are_redacted(self):
+        from io import BytesIO
+        from urllib.error import HTTPError
+        error = HTTPError(
+            "https://example.org/api?securityToken=secret-token", 400,
+            "Bad Request", {},
+            BytesIO(b"<Acknowledgement_MarketDocument><Reason>"
+                    b"<code>999</code><text>secret-token</text>"
+                    b"</Reason></Acknowledgement_MarketDocument>"))
+        detail = collector._safe_error_detail(error)
+        self.assertEqual(detail, "HTTP_400_ENTSOE_999")
+        self.assertNotIn("secret-token", detail)
+
+    def test_invalid_xml_error_detail(self):
+        from xml.etree.ElementTree import ParseError
+        self.assertEqual(collector._safe_error_detail(ParseError("bad data")),
+                         "INVALID_XML")
+
     def test_successful_collection(self):
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / "events.json"
