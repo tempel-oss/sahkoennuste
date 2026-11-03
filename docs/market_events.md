@@ -42,3 +42,27 @@ voitu vahvistaa poikkeamia. Se ei väitä, ettei poikkeamia ole.
 - Tapahtuman ajallinen yhdistäminen D+2–D+12 hintamuutoksiin;
   määrälliset hintavaikutukset vain, jos ne voidaan perustella.
 - Syötteen päivityksen ajastaminen pilviajossa ja julkaisun integrointitesti.
+
+## Automaattinen keräys (vaihe 2)
+
+`scripts/collect_market_events.py` hakee ENTSO-E Transparency APIsta
+Suomen tarjousalueen ilmoitukset dokumenttityypeillä A80 ja A77.
+Sama `ENTSOE_API_TOKEN`-salaisuus, jota muu ennustemoottori käyttää,
+riittää keräimeen, mikäli rajapinnan käyttöoikeus kattaa nämä tiedot.
+
+`scripts/production_runner.py` suorittaa keruun ennen HTML-julkaisua
+ei-kriittisenä työvaiheena. Jos tunnus puuttuu, rajapintakysely epäonnistuu
+tai vastaus on virheellinen, ennusteen laskenta jatkuu ja käyttöliittymä
+kertoo, ettei poikkeamia ole vahvistettu aineistosta. Vain kummankin
+kyselyn onnistuttua tiedosto kirjoitetaan atomisesti.
+
+**Rajaukset:** Ensimmäinen automaattikeräin kattaa tuotantoyksiköiden
+käytettävyysilmoitukset, ei vielä siirtoyhteyksien A78-ilmoituksia.
+MW-määräisen poistuman laskentaa, hintavaikutuksen määrällistä mallia,
+virallisen ilmoituksen muuttumishistoriaa tai datalähteen kattavuuden
+varmistusta tuotannon CI-ajosta ei ole vielä toteutettu. ENTSO-E:n
+julkaisema ilmoitus ei yksin todista hinnanmuutoksen syy-seuraussuhdetta.
+
+Huomaa, että automaattinen keräin kirjoittaa ajantasaiset havainnot
+`data/market_events.json`-tiedostoon; tiedostoa ei tallenneta
+pitkäaikaiseen historiavarastoon tällä toteutuksella.
