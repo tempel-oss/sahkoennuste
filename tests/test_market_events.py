@@ -45,6 +45,19 @@ class MarketEventsTest(unittest.TestCase):
             self.assertEqual(found[0]["title"], "Example outage")
             self.assertIn("Lähde: Example", po._market_events_html(found))
 
+    def test_outage_intersects_helsinki_forecast_days(self):
+        event = {
+            "start_utc": "2026-11-05T21:30:00Z",
+            "end_utc": "2026-11-06T22:30:00Z",
+        }
+        days = [
+            {"date": "2026-11-05", "d_plus": 2},
+            {"date": "2026-11-06", "d_plus": 3},
+            {"date": "2026-11-07", "d_plus": 4},
+        ]
+        matched = po._event_days(event, days)
+        self.assertEqual([x["d_plus"] for x in matched], [2, 3, 4])
+
     def test_event_text_is_escaped(self):
         event = {"title": "<script>alert(1)</script>",
                  "description": "<b>unsafe</b>", "start_utc": "2026-11-02T12:00:00+00:00",
