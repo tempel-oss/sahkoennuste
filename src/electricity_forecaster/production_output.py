@@ -214,9 +214,13 @@ def build_latest_outputs():
                "trained_ml":meta["model_name"]!="fundamental_baseline"},
       "shadow_comparison":safe_current_summary(),
       "model_status":model_status(),"forecast_quality":quality_summary(),"previous_forecast_run_id":prev["forecast_run_id"] if prev else None,
+      "market_event_coverage":_market_event_coverage(issue_dt.isoformat()),
+      "market_events":_verified_market_events(issue_dt.isoformat()),
       "data_quality":meta["data_quality"],"freshness":_freshness(con),
       "published_day_ahead":_published_prices(con,issue_slot,issue_dt),"days":days
     }
+    for event in payload["market_events"]:
+        event["affected_days"] = _event_days(event, days)
     con.close()
     jp=OUTPUT_DIR/"latest_forecast.json"; jp.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding="utf-8")
     hp=OUTPUT_DIR/"latest_forecast.html"; hp.write_text(_render_html(payload),encoding="utf-8")
@@ -450,6 +454,139 @@ def _factor_value(dg,key,unit):
     if unit=="MW" and abs(val)>=1000:
         return val,_fmt_fi(val/1000,1),"GW"
     return val,_fmt_fi(val,1),unit
+
+
+def _market_event_coverage(issue_time):
+    """Source coverage, distinct from the presence or absence of outages."""
+    feed = ROOT / "data" / "market_events.json"
+    fallback = {"status": "unavailable", "queries_succeeded": 0,
+                "queries_total": 0}
+    try:
+        data = json.loads(feed.read_text(encoding="utf-8"))
+        observed = _parse_dt(data["collected_at_utc"])
+        issue = _parse_dt(issue_time)
+        if observed > issue + timedelta(minutes=5) or issue-observed > timedelta(hours=3):
+            return {"status": "stale", "queries_succeeded": 0,
+                    "queries_total": data.get("queries_total", 0)}
+        status = data.get("status")
+        if status not in ("ok", "partial", "unavailable"):
+            return fallback
+        return {"status": status,
+                "queries_succeeded": int(data.get("queries_succeeded", 0)),
+                "queries_total": int(data.get("queries_total", 0))}
+    except (OSError, ValueError, TypeError, KeyError):
+        return fallback
+
+
+def _verified_market_events(issue_time, limit=5):
+    """Read optional sourced event observations, never infer outages from model values.
+
+    File is maintained by a separate source collector. Missing/bad feeds result in
+    an explicit unverified state rather than fabricated market explanations.
+    """
+    from urllib.parse import urlparse
+    feed = ROOT / "data" / "market_events.json"
+    if not feed.is_file():
+        return []
+    try:
+        records = json.loads(feed.read_text(encoding="utf-8"))
+        if isinstance(records, dict):
+            records = records.get("events", [])
+        if not isinstance(records, list):
+            return []
+        now = _parse_dt(issue_time)
+        output = []
+        for e in records:
+            if not isinstance(e, dict):
+                continue
+            url = str(e.get("source_url") or "")
+            parsed = urlparse(url)
+            if parsed.scheme != "https" or not parsed.netloc:
+                continue
+            if e.get("verification") != "confirmed":
+                continue
+            observed = _parse_dt(e["observed_at_utc"])
+            start = _parse_dt(e["start_utc"])
+            end = _parse_dt(e["end_utc"]) if e.get("end_utc") else None
+            if observed > now or (now-observed).total_seconds() > 72*3600:
+                continue
+            if end and end < now:
+                continue
+            if start > now + timedelta(days=12):
+                continue
+            label = str(e.get("title") or "").strip()[:160]
+            if not label:
+                continue
+            effect = e.get("price_direction", "unknown")
+            if effect not in ("up", "down", "mixed", "unknown"):
+                effect = "unknown"
+            output.append({
+                "title":label, "source_url":url,
+                "source_name":str(e.get("source_name") or parsed.netloc)[:100],
+                "start_utc":start.isoformat(),
+                "end_utc":end.isoformat() if end else None,
+                "observed_at_utc":observed.isoformat(),
+                "price_direction":effect,
+                "description":str(e.get("description") or "")[:350],
+                "category":str(e.get("category") or "other")[:80],
+                "event_id":str(e.get("event_id") or "")[:240],
+            })
+        output.sort(key=lambda e:e["observed_at_utc"], reverse=True)
+        return output[:limit]
+    except (ValueError, TypeError, KeyError, OSError):
+        return []
+
+
+def _event_days(event, days):
+    """Forecast days intersected by the dated outage, in Helsinki local time."""
+    from datetime import date, time
+    start = _parse_dt(event["start_utc"])
+    end = _parse_dt(event["end_utc"]) if event.get("end_utc") else None
+    matches = []
+    for day in days:
+        target = date.fromisoformat(day["date"])
+        local_start = datetime.combine(target, time.min, tzinfo=HELSINKI)
+        local_end = datetime.combine(target + timedelta(days=1), time.min,
+                                     tzinfo=HELSINKI)
+        lo, hi = local_start.astimezone(timezone.utc), local_end.astimezone(timezone.utc)
+        if start < hi and (end is None or end > lo):
+            matches.append({"date": target.isoformat(), "d_plus": day.get("d_plus")})
+    return matches
+
+
+def _market_events_html(events):
+    if not events:
+        return ('<p style="font-size:14px;color:#6B6558;margin:12px 0 0;">'
+                'Tuotantopoikkeamia tai siirtorajoituksia ei ole vahvistettu '
+                'käytettävissä olevasta tapahtuma-aineistosta. '
+                'Tämä ei tarkoita, ettei poikkeamia olisi.</p>')
+    labels={"up":"Mahdollisesti hintaa nostava","down":"Mahdollisesti hintaa laskeva",
+            "mixed":"Vaikutus riippuu markkinatilanteesta","unknown":"Hintavaikutus arvioimatta"}
+    parts=['<h3 style="font-size:17px;margin:18px 0 10px;">Vahvistetut markkinatapahtumat</h3>']
+    for e in events:
+        title=html.escape(e["title"])
+        description=html.escape(e["description"])
+        direction=html.escape(labels[e["price_direction"]])
+        url=html.escape(e["source_url"],quote=True)
+        source=html.escape(e["source_name"])
+        start=html.escape(e["start_utc"][:16].replace("T"," ")+" UTC")
+        affected = e.get("affected_days", [])
+        dates = ", ".join("D+" + str(d["d_plus"]) + " (" + d["date"] + ")"
+                          for d in affected if d.get("d_plus") is not None)
+        overlap = ("<p style='font-size:13px;margin:4px 0;'>"
+                   "Ajallinen osuma ennusteeseen: " + html.escape(dates)
+                   + ". Tämä ei osoita hinnanmuutoksen syytä.</p>") if dates else ""
+        parts.append(
+          '<div style="border-top:1px solid #E7E3D9;padding:12px 0;">'
+          f'<strong>{title}</strong> <span style="color:#6B6558;font-size:13px;">({start})</span>'
+          f'<p style="margin:6px 0;font-size:15px;">{description}</p>'
+          f'{overlap}'
+          f'<p style="margin:4px 0;font-size:13px;color:#6B6558;">{direction}. '
+          'Vaikutuksen suuruutta ei ole kvantifioitu.</p>'
+          f'<a href="{url}" rel="noopener noreferrer" target="_blank" '
+          f'style="font-size:13px;">Lähde: {source}</a></div>'
+        )
+    return "".join(parts)
 
 def _narrative_paragraphs(p):
     """Two short, plain-language paragraphs for the consumer page: what changed, and why —
@@ -839,6 +976,23 @@ def _render_html(p):
     narrative_html=f'<p style="font-size:17px;line-height:1.65;color:#3A382F;margin:0 0 10px;">{html.escape(para1)}</p>'
     if para2:
         narrative_html+=f'<p style="font-size:17px;line-height:1.65;color:#3A382F;margin:0;">{html.escape(para2)}</p>'
+
+    coverage=p.get("market_event_coverage",{})
+    checked=coverage.get("queries_succeeded",0)
+    total=coverage.get("queries_total",0)
+    state=coverage.get("status","unavailable")
+    status_text=(
+        f"Tapahtumatietojen lähdekyselyt onnistuneet {checked}/{total}."
+        if state=="ok" else
+        f"Tapahtumatietojen lähdekyselyt osittaiset ({checked}/{total})."
+        if state=="partial" else
+        "Tapahtumatiedot ovat vanhentuneet; uusia poikkeamia ei ole voitu varmentaa."
+        if state=="stale" else
+        "Tapahtumatietoja ei voitu tarkistaa tässä ennusteajossa."
+    )
+    narrative_html+=('<p style="font-size:13px;color:#6B6558;margin:12px 0;">'
+                     +html.escape(status_text)+'</p>')
+    narrative_html+=_market_events_html(p.get("market_events",[]))
 
     forecast_days=p.get("days",[])
     if forecast_days:

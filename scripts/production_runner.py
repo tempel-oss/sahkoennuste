@@ -100,6 +100,15 @@ try:
         results.append(("DATA_QUALITY","error",msg))
         exit_code=3
 
+    # Event collection must precede make_forecast(), which sets issue_time.
+    # Observed timestamps are then <= issue_time, not rejected as future data.
+    # This optional step never blocks the price forecast.
+    # Optional sourced outage observations: no source outage may block forecasting.
+    def refresh_market_events():
+        from collect_market_events import collect
+        return collect()
+    step("MARKET_EVENTS",False,refresh_market_events)
+
     forecast_ok=False
     publish_ok=False
     forecast_result=None
