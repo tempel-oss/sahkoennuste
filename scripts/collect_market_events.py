@@ -20,6 +20,11 @@ API = "https://web-api.tp.entsoe.eu/api"
 FI_ZONE = "10YFI-1--------U"
 TRANSPARENCY_LINK = "https://transparency.entsoe.eu/"
 MAX_RESPONSE = 8_000_000
+BORDERS = {
+    "SE1": "10Y1001A1001A44P",
+    "SE3": "10Y1001A1001A46L",
+    "EE": "10Y1001A1001A39I",
+}
 
 
 def _name(tag):
@@ -59,68 +64,76 @@ def _interval(node):
     return None
 
 
-def parse_notices(xml_bytes, collected_at, document_type):
-    """Parse ENTSO-E outage XML, without claiming a quantified price impact."""
+def parse_notices(xml_bytes, collected_at, document_type, border=None):
+    """Extract explicit dated outage notices; never infer capacity or price."""
     if len(xml_bytes) > MAX_RESPONSE:
         raise ValueError("Response too large")
     root = ET.fromstring(xml_bytes)
     docs = ([root] if _name(root.tag) == "Unavailability_MarketDocument"
             else [n for n in root.iter() if _name(n.tag) == "Unavailability_MarketDocument"])
     if not docs:
-        # ENTSO-E may respond with an acknowledgement instead of outage data.
-        # Only the explicit "no matching data" code is a valid empty result.
         if _name(root.tag) == "Acknowledgement_MarketDocument":
             reasons = [(_value(n, "code"), _value(n, "text"))
                        for n in root.iter() if _name(n.tag) == "Reason"]
-            if any(code == "999" and "no matching data" in message.lower()
-                   for code, message in reasons):
+            if any(code == "999" and "no matching data" in msg.lower()
+                   for code, msg in reasons):
                 return []
         raise ValueError("Unexpected outage response or source acknowledgement")
     events = []
     for doc in docs:
-        if _value(doc, "type") not in ("A80", "A77"):
-            continue
+        if _value(doc, "type") != document_type:
+            raise ValueError("Outage document type mismatch")
         status = _child(doc, "docStatus")
         if status is not None and _value(status, "value") in ("A13", "A09"):
-            continue  # withdrawn / cancelled
+            continue
         reference = _value(doc, "mRID")
         created = _value(doc, "createdDateTime")
-        series = [n for n in doc if _name(n.tag) == "TimeSeries"]
+        if not reference or not created:
+            continue
+        series = [n for n in doc if _name(n.tag) == "TimeSeries"] or [doc]
         for item in series:
-            business = _value(item, "businessType")
-            unit = next((n for n in item.iter()
-                         if _name(n.tag) in ("registeredResource.name", "name")), None)
-            unit_name = (unit.text or "").strip() if unit is not None else ""
-            resource = next((n for n in item.iter()
-                             if _name(n.tag) in ("registeredResource.mRID",)), None)
-            unit_name = unit_name or (resource.text or "").strip() if resource is not None else unit_name
             period = _interval(item) or _interval(doc)
             if not period:
                 continue
             start, end = period
             if end <= start:
                 continue
-            # Do not confuse remaining available power with outage magnitude.
-            kind = "suunniteltu huolto" if business == "A53" else (
-                "suunnittelematon käytettävyysmuutos" if business == "A54"
-                else "käytettävyysilmoitus")
-            title = ("Tuotantoyksikön " + kind + (": " + unit_name if unit_name else ""))
+            business = _value(item, "businessType") or _value(doc, "businessType")
+            kind = ("suunniteltu huolto" if business == "A53"
+                    else "suunnittelematon käytettävyysmuutos" if business == "A54"
+                    else "käytettävyysilmoitus")
             note = next((n.text.strip() for n in item.iter()
                          if _name(n.tag) == "text" and n.text and n.text.strip()), "")
+            if document_type == "A78":
+                category = "transmission_unavailability"
+                label = border or "tuntematon"
+                title = "Siirtoyhteyden " + kind + ": FI–" + label
+                description = note or ("ENTSO-E:n julkaisema siirtoinfrastruktuurin "
+                                       "käytettävyysilmoitus; kapasiteetin muutos "
+                                       "ei ole vahvistettu.")
+            else:
+                category = "generation_unavailability"
+                unit = next((n for n in item.iter()
+                             if _name(n.tag) in ("registeredResource.name", "name")), None)
+                unit_name = (unit.text or "").strip() if unit is not None else ""
+                resource = next((n for n in item.iter()
+                                 if _name(n.tag) == "registeredResource.mRID"), None)
+                if not unit_name and resource is not None:
+                    unit_name = (resource.text or "").strip()
+                title = "Tuotantoyksikön " + kind + (": " + unit_name if unit_name else "")
+                description = note or "ENTSO-E:n julkaisema tuotantoyksikön käytettävyystieto."
+            series_id = _value(item, "mRID") if item is not doc else "document"
             events.append({
-                "event_id": f"entsoe-{document_type}-{reference}-{_value(item, 'mRID')}-{start.isoformat()}",
-                "title": title,
-                "description": (note or "ENTSO-E:n julkaisema tuotantoyksikön käytettävyystieto.")[:350],
+                "event_id": f"entsoe-{document_type}-{reference}-{series_id}-{start.isoformat()}",
+                "title": title[:160], "description": description[:350],
                 "source_url": TRANSPARENCY_LINK,
                 "source_name": "ENTSO-E Transparency Platform",
                 "source_published_at_utc": created,
                 "observed_at_utc": collected_at.isoformat(),
-                "start_utc": start.isoformat(),
-                "end_utc": end.isoformat(),
-                "verification": "confirmed",
-                "price_direction": "unknown",
-                "category": "generation_unavailability",
-                "business_type": business,
+                "start_utc": start.isoformat(), "end_utc": end.isoformat(),
+                "verification": "confirmed", "price_direction": "unknown",
+                "category": category, "business_type": business,
+                "border": border if document_type == "A78" else None,
             })
     return events
 
@@ -128,53 +141,54 @@ def parse_notices(xml_bytes, collected_at, document_type):
 def collect(now=None, token=None, opener=urlopen, output=OUTPUT):
     now = now or datetime.now(timezone.utc)
     token = token if token is not None else os.getenv("ENTSOE_API_TOKEN", "")
-    if not token.strip():
-        print("[MARKET_EVENTS] ENTSOE_API_TOKEN missing: no source-backed events")
-        return {"status": "unavailable", "reason": "missing_token", "events": 0}
-
-    start = now - timedelta(days=1)
-    end = now + timedelta(days=12)
-    results = []
-    errors = []
-    for document_type in ("A80", "A77"):
-        params = {
-            "securityToken": token.strip(),
-            "documentType": document_type,
-            "biddingZone_Domain": FI_ZONE,
-            "periodStart": start.strftime("%Y%m%d%H%M"),
-            "periodEnd": end.strftime("%Y%m%d%H%M"),
-        }
-        url = API + "?" + urlencode(params)
-        try:
-            req = Request(url, headers={"User-Agent": "Sahkoennuste-MarketEvents/1.0"})
-            with opener(req, timeout=25) as response:
-                raw = response.read(MAX_RESPONSE + 1)
-            results.extend(parse_notices(raw, now, document_type))
-        except (HTTPError, URLError, TimeoutError, ValueError, ET.ParseError, OSError) as exc:
-            # Never print the request URL because it includes the security token.
-            errors.append(document_type + ": " + type(exc).__name__)
-
-    if errors:
-        # No partial feed is published as if its coverage were complete.
-        print("[MARKET_EVENTS] Source query degraded: " + ", ".join(errors))
-        return {"status": "unavailable", "reason": "source_error", "events": 0}
-
-    unique = {}
-    for event in results:
-        unique[event["event_id"]] = event
-    items = sorted(unique.values(), key=lambda e: e["start_utc"])
+    start, end = now - timedelta(days=1), now + timedelta(days=12)
+    queries = [
+        ("A80", {"biddingZone_Domain": FI_ZONE}, None),
+        ("A77", {"biddingZone_Domain": FI_ZONE}, None),
+    ]
+    for label, neighbor in BORDERS.items():
+        for outgoing, incoming in ((FI_ZONE, neighbor), (neighbor, FI_ZONE)):
+            queries.append(("A78", {"out_Domain": outgoing, "in_Domain": incoming}, label))
+    results, errors = [], []
+    if token.strip():
+        for doc_type, domains, border in queries:
+            params = {"securityToken": token.strip(), "documentType": doc_type,
+                      "periodStart": start.strftime("%Y%m%d%H%M"),
+                      "periodEnd": end.strftime("%Y%m%d%H%M"), **domains}
+            try:
+                req = Request(API + "?" + urlencode(params),
+                              headers={"User-Agent": "Sahkoennuste-MarketEvents/1.1"})
+                with opener(req, timeout=25) as response:
+                    raw = response.read(MAX_RESPONSE + 1)
+                results.extend(parse_notices(raw, now, doc_type, border=border))
+            except (HTTPError, URLError, TimeoutError, ValueError, ET.ParseError, OSError):
+                # Do not log the request URL: it contains the API secret.
+                errors.append(doc_type + ("_" + border if border else ""))
+    else:
+        errors.append("missing_token")
+    unique = {event["event_id"]: event for event in results}
+    items = sorted(unique.values(), key=lambda e: (e["start_utc"], e["event_id"]))
+    status = "ok" if not errors else "partial" if results else "unavailable"
+    snapshot = {
+        "schema_version": "1.1", "collector": "entsoe_market_unavailability",
+        "collected_at_utc": now.isoformat(), "status": status,
+        "queries_total": len(queries),
+        "queries_succeeded": len(queries)-len(errors) if token.strip() else 0,
+        "failed_scopes": errors,
+        "scope": ["FI_generation_A80", "FI_production_A77",
+                  "FI_SE1_A78", "FI_SE3_A78", "FI_EE_A78"],
+        "events": items,
+    }
     output.parent.mkdir(parents=True, exist_ok=True)
     tmp = output.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps({
-        "schema_version": "1.0",
-        "collector": "entsoe_generation_unavailability",
-        "collected_at_utc": now.isoformat(),
-        "scope": ["FI_generation_A80", "FI_production_A77"],
-        "events": items,
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2),
+                   encoding="utf-8")
     tmp.replace(output)
-    print(f"[MARKET_EVENTS] Confirmed notices: {len(items)}")
-    return {"status": "ok", "events": len(items)}
+    print(f"[MARKET_EVENTS] status={status} events={len(items)} "
+          f"queries={snapshot['queries_succeeded']}/{len(queries)}")
+    return {"status": status, "events": len(items),
+            "queries_succeeded": snapshot["queries_succeeded"],
+            "queries_total": len(queries)}
 
 
 if __name__ == "__main__":
