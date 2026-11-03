@@ -1,0 +1,29 @@
+name: Market-event tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/collect_market_events.py'
+      - 'src/electricity_forecaster/production_output.py'
+      - 'tests/test_market_events*.py'
+      - '.github/workflows/test_market_events.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  market-events:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile changed Python modules
+        run: python -m py_compile scripts/collect_market_events.py scripts/production_runner.py src/electricity_forecaster/production_output.py
+      - name: Run offline regression tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p 'test_market_events*.py' -v
