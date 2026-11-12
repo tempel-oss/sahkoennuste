@@ -1,0 +1,87 @@
+name: Challenger research training (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: challenger-research-training
+  cancel-in-progress: false
+
+jobs:
+  train:
+    name: Train and evaluate challenger (research only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-challenger-v2.txt
+      - name: Install pinned research dependencies
+        run: python -m pip install -r requirements-challenger-v2.txt
+      - name: Restore historical forecast database
+        id: history
+        uses: actions/cache/restore@v4
+        with:
+          path: data/electricity_forecaster.sqlite3
+          key: forecast-db-research-${{ github.run_id }}
+          restore-keys: |
+            forecast-db-
+      - name: Validate historical database cache
+        env:
+          MATCHED_CACHE: ${{ steps.history.outputs.cache-matched-key }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          key = os.environ.get("MATCHED_CACHE", "")
+          db = Path("data/electricity_forecaster.sqlite3")
+          if not key.startswith("forecast-db-") or not db.is_file() or db.stat().st_size == 0:
+              raise SystemExit("No usable forecast-db-* cache. Run a successful cloud forecast first.")
+          print("Historical forecast cache restored; research runs read-only.")
+          PY
+      - name: Train and compare challenger against champion
+        env:
+          MATCHED_CACHE: ${{ steps.history.outputs.cache-matched-key }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python research/train_cloud_research.py > "$RUNNER_TEMP/challenger-summary.log"
+          cat "$RUNNER_TEMP/challenger-summary.log"
+      - name: Publish compact research results to GitHub job summary
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          text = (Path(os.environ["RUNNER_TEMP"]) / "challenger-summary.log").read_text()
+          start, end = "BEGIN_RESEARCH_SUMMARY", "END_RESEARCH_SUMMARY"
+          if start not in text or end not in text:
+              raise SystemExit("Research summary markers missing")
+          report = json.loads(text.split(start, 1)[1].split(end, 1)[0])
+          if report.get("status") != "research_only" or "overall" not in report:
+              raise SystemExit("Research could not evaluate challenger; see logs")
+          lines = [
+              "## Challenger vs champion — research only",
+              "",
+              f"- Training rows: {report.get('training_rows')}",
+              f"- Training runs: {report.get('training_runs')}",
+              f"- Evaluated unique hours: {report.get('evaluated_unique_hours')}",
+              "- No model deployed or published.",
+              "",
+              "### Overall metrics",
+              "```json",
+              json.dumps(report["overall"], indent=2, ensure_ascii=False),
+              "```",
+              "",
+              "### Fold results",
+              "```json",
+              json.dumps(report["folds"], indent=2, ensure_ascii=False),
+              "```",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("\n".join(lines) + "\n")
+          PY
