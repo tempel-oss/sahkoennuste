@@ -1,0 +1,97 @@
+name: Daily challenger v0.1 and v0.2 research
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 20 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: challenger-daily-research
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OMP_NUM_THREADS: "2"
+      OPENBLAS_NUM_THREADS: "2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-challenger-v2.txt
+      - name: Install research dependencies
+        run: python -m pip install -r requirements-challenger-v2.txt
+      - name: Restore latest forecast history
+        id: restore
+        uses: actions/cache/restore@v4
+        with:
+          path: data/electricity_forecaster.sqlite3
+          key: forecast-db-challenger-${{ github.run_id }}
+          restore-keys: |
+            forecast-db-
+          fail-on-cache-miss: true
+      - name: Validate cache and database
+        env:
+          MATCHED_CACHE: ${{ steps.restore.outputs.cache-matched-key }}
+        run: |
+          python - <<'PY'
+          import os, sqlite3
+          from pathlib import Path
+          p=Path("data/electricity_forecaster.sqlite3")
+          if not os.environ.get("MATCHED_CACHE","").startswith("forecast-db-") or not p.is_file():
+              raise SystemExit("Missing forecast history cache")
+          with sqlite3.connect(p.resolve().as_uri()+"?mode=ro",uri=True) as db:
+              print("Forecast history rows:",db.execute("SELECT COUNT(*) FROM price_forecast_runs").fetchone()[0])
+          PY
+      - name: Evaluate challenger v0.1
+        env:
+          MATCHED_CACHE: ${{ steps.restore.outputs.cache-matched-key }}
+        run: python research/train_cloud_research.py > "$RUNNER_TEMP/v01.log"
+      - name: Evaluate challenger v0.2
+        env:
+          MATCHED_CACHE: ${{ steps.restore.outputs.cache-matched-key }}
+        run: python research/challenger_v2_research.py --output "$RUNNER_TEMP/v02"
+      - name: Restore published history and generate unified report
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          git fetch origin main
+          git show origin/main:output/challenger_training_history.json > output/challenger_training_history.json 2>/dev/null || true
+          python scripts/publish_challenger_training.py --v01 "$RUNNER_TEMP/v01.log" --v02 "$RUNNER_TEMP/v02/report.json" --run-id "$RUN_ID"
+          echo "## Challenger v0.1 / v0.2 daily research" >> "$GITHUB_STEP_SUMMARY"
+          echo "Both models evaluated; MAE history updated. No model promotion." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload research summaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: challenger-research-${{ github.run_id }}
+          path: |
+            output/challenger_training_history.json
+            output/challenger_models.html
+            research_results/challenger_v2/
+          retention-days: 90
+      - name: Publish unified comparison to main
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/challenger-publish"
+          cp output/challenger_training_history.json output/challenger_models.html "$RUNNER_TEMP/challenger-publish/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            mkdir -p output
+            cp "$RUNNER_TEMP/challenger-publish/"* output/
+            git add -f output/challenger_training_history.json output/challenger_models.html
+            if git diff --cached --quiet; then break; fi
+            git commit -m "Update daily challenger MAE comparison [skip ci]"
+            if git push origin HEAD:main; then exit 0; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+          done
