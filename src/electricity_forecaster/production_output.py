@@ -1281,6 +1281,7 @@ def _render_diagnostics_html(p):
 
     <div style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#8A8577;font-weight:700;margin-bottom:7px;">Mallin tila</div>
     <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0 0 14px;">Champion &amp; Challenger</h2>
+    <p style="margin:0 0 18px;"><a href="challenger_models.html" style="color:#0B4F49;font-weight:700;">Challenger v0.1 ja v0.2 — päivittäiset MAE-tulokset ja muutokset</a></p>
     {model_html}
     {shadow_html}
     {challenger_html}
